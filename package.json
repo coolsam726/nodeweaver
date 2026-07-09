@@ -1,0 +1,12 @@
+{
+  "name": "nest-nuxt-stack",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n api,web -c blue,green \"pnpm --filter api dev\" \"pnpm --filter web dev\"",
+    "build": "pnpm --filter web build && pnpm --filter api build",
+    "start:prod": "NODE_ENV=production node apps/api/dist/main.js"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
