@@ -6,10 +6,10 @@ import { User } from './user.entity';
 @Module({
   imports: [
     TypeOrmModule.forRoot({
-      type: 'better-sqlite3',
-      database: './data/dev.db',
+      type: (process.env.DB_TYPE as 'postgres' | 'mysql' | 'sqlite') ?? 'postgres',
+      url: process.env.DATABASE_URL,
       entities: [Company, User],
-      synchronize: true,
+      synchronize: process.env.NODE_ENV !== 'production',
     }),
     TypeOrmModule.forFeature([Company, User]),
   ],
