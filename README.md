@@ -74,10 +74,11 @@ pnpm run create:weaver my-app
 
 1. Create an [npm access token](https://www.npmjs.com/settings/~your-user/tokens) with **Publish** permission.
 2. Add it to the GitHub repository as secret **`NPM_TOKEN`**.
+3. On first release, publishing `@nestweaver/loom` creates the public **`@nestweaver`** scope on npm.
 
 ### Release flow
 
-1. Bump versions in `packages/nestweaver/package.json`, `packages/create-nestweaver/package.json`, and `packages/loom/package.json` (keep nestweaver packages in sync).
+1. Bump versions in `packages/loom/package.json`, `packages/nestweaver/package.json`, and `packages/create-nestweaver/package.json` (keep versions in sync).
 2. Commit, push to `main`, and [create a GitHub Release](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository#creating-a-release) for the tag (e.g. `v0.1.0`).
 
 The **Publish** workflow runs on `release: published`, builds, smoke-tests the scaffolder, then publishes `@nestweaver/loom`, `nestweaver`, and `create-nestweaver`.

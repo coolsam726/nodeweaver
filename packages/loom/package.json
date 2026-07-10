@@ -73,6 +73,11 @@
     "drizzle-orm": "^0.44.2"
   },
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/coolsam726/nestweaver.git",
+    "directory": "packages/loom"
+  },
   "publishConfig": {
     "access": "public"
   }

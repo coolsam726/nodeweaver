@@ -13,4 +13,6 @@ pnpm --filter create-nestweaver dev my-app
 
 ## Publish order
 
-Publish `nestweaver` first, then `create-nestweaver` (it depends on `nestweaver`).
+1. `@nestweaver/loom` — admin panel (publish first; creates the `@nestweaver` scope on npm if needed)
+2. `nestweaver` — scaffolder CLI and templates
+3. `create-nestweaver` — `npm create` entry (depends on `nestweaver`)
