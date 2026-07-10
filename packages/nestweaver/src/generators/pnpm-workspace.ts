@@ -26,6 +26,10 @@ export function generatePnpmWorkspace(options: ScaffoldOptions): string {
     allowBuilds.add('msgpackr-extract');
   }
 
+  if (options.frontend === 'angular') {
+    allowBuilds.add('lmdb');
+  }
+
   const lines = [
     'packages:',
     "  - 'apps/*'",

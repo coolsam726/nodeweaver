@@ -5,7 +5,7 @@ import {
   nestApiBaseUrl,
   scaffoldHostIds,
 } from '../constants.js';
-import { isNuxtSsr } from '../frontend.js';
+import { isSsrFrontend } from '../frontend.js';
 import type { ScaffoldOptions } from '../types.js';
 
 /** Docker Compose is always generated for scaffolded projects. */
@@ -149,7 +149,7 @@ function appEnvironment(options: ScaffoldOptions): string[] {
     '      WEB_DEV_HOST: 0.0.0.0',
   ];
 
-  if (isNuxtSsr(options)) {
+  if (isSsrFrontend(options)) {
     lines.push(`      API_BASE_SERVER: ${nestApiBaseUrl()}`);
   }
 

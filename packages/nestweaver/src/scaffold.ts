@@ -6,6 +6,7 @@ import { generateApiPackageJson } from './generators/api-package-json.js';
 import { generateAppModule } from './generators/app-module.js';
 import { generateEnvExample } from './generators/env.js';
 import { generateMain } from './generators/main.js';
+import { generateAngularJson, generateAngularProxyConf } from './generators/angular-config.js';
 import { generateNuxtConfig } from './generators/nuxt-config.js';
 import { generateViteConfig } from './generators/vite-config.js';
 import {
@@ -13,7 +14,7 @@ import {
   needsDockerServices,
   dockerInfraServiceNames,
 } from './generators/docker-compose.js';
-import { isNuxtSsr, isSpaFrontend } from './frontend.js';
+import { isSsrFrontend, isSpaFrontend } from './frontend.js';
 import { NEST_DEFAULT_PORT } from './constants.js';
 import { generateTypeormDatabaseModule } from './generators/typeorm-database-module.js';
 import { generatePnpmWorkspace } from './generators/pnpm-workspace.js';
@@ -70,8 +71,12 @@ function applyFeatures(options: ScaffoldOptions, context: TemplateContext): void
     copyDir(join(features, 'admin', options.httpAdapter), options.targetDir, context);
   }
 
-  if (isNuxtSsr(options)) {
+  if (isSsrFrontend(options)) {
     copyDir(join(features, 'ssr'), options.targetDir, context);
+  }
+
+  if (options.frontend === 'angular' && options.renderMode === 'ssr') {
+    copyDir(join(features, 'angular-ssr'), options.targetDir, context);
   }
 
   if (isSpaFrontend(options)) {
@@ -101,6 +106,14 @@ function writeGeneratedFiles(
       join(targetDir, 'apps/web/nuxt.config.ts'),
       generateNuxtConfig(options),
     ]);
+  } else if (options.frontend === 'angular') {
+    writes.push(
+      [join(targetDir, 'apps/web/angular.json'), generateAngularJson(options)],
+      [
+        join(targetDir, 'apps/web/proxy.conf.js'),
+        generateAngularProxyConf(),
+      ],
+    );
   } else {
     writes.push([
       join(targetDir, 'apps/web/vite.config.ts'),

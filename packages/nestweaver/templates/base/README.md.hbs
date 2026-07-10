@@ -48,7 +48,7 @@ Admin panel: **http://localhost:{{nestPort}}/admin**
 
 ```
 apps/api          NestJS backend (HTTP entry, /api/*)
-apps/web          {{frontendLabel}} frontend{{#if isNuxt}} ({{renderMode}}){{else}} (SPA){{/if}}
+apps/web          {{frontendLabel}} frontend{{#if isVite}} (SPA){{else}} ({{renderMode}}){{/if}}
 packages/shared   Shared TypeScript types
 ```
 

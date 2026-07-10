@@ -2,7 +2,12 @@ export type Orm = 'typeorm' | 'prisma' | 'drizzle' | 'mongoose' | 'none';
 export type Database = 'postgresql' | 'mysql' | 'sqlite' | 'mongodb';
 export type HttpAdapter = 'fastify' | 'express';
 export type RenderMode = 'ssr' | 'spa';
-export type Frontend = 'nuxt' | 'vite-react' | 'vite-vue' | 'vite-svelte';
+export type Frontend =
+  | 'nuxt'
+  | 'angular'
+  | 'vite-react'
+  | 'vite-vue'
+  | 'vite-svelte';
 
 export interface ScaffoldOptions {
   projectName: string;
@@ -14,7 +19,7 @@ export interface ScaffoldOptions {
   queues: boolean;
   httpAdapter: HttpAdapter;
   admin: boolean;
-  /** Only used when frontend === 'nuxt'. */
+  /** Used when frontend is Nuxt or Angular. */
   renderMode: RenderMode;
 }
 
@@ -22,6 +27,7 @@ export interface TemplateContext extends ScaffoldOptions {
   sharedScope: string;
   frontendLabel: string;
   isNuxt: boolean;
+  isAngular: boolean;
   isVite: boolean;
   isNuxtSsr: boolean;
   isSsr: boolean;

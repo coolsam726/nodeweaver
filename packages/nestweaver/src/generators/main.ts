@@ -1,5 +1,5 @@
 import type { ScaffoldOptions } from '../types.js';
-import { isNuxtSsr } from '../frontend.js';
+import { isSsrFrontend } from '../frontend.js';
 import { NEST_DEFAULT_PORT, WEB_DEV_DEFAULT_PORT } from '../constants.js';
 
 const DEV_PROXY_SNIPPET = `
@@ -23,17 +23,22 @@ export function generateMain(options: ScaffoldOptions): string {
       : '';
 
   if (options.httpAdapter === 'express') {
-    return isNuxtSsr(options)
-      ? generateExpressSsrMain(adminSetupExpress)
+    return isSsrFrontend(options)
+      ? generateExpressSsrMain(adminSetupExpress, options)
       : generateExpressSpaMain(adminSetupExpress, options);
   }
 
-  return isNuxtSsr(options)
-    ? generateFastifySsrMain(options.admin)
+  return isSsrFrontend(options)
+    ? generateFastifySsrMain(options.admin, options)
     : generateFastifySpaMain(options.admin, options);
 }
 
-function generateExpressSsrMain(adminSetup: string): string {
+function generateExpressSsrMain(
+  adminSetup: string,
+  options: ScaffoldOptions,
+): string {
+  const ssr = ssrProductionBlocks(options, 'express');
+
   return `import { existsSync } from 'node:fs';
 import type { Socket } from 'node:net';
 import { join } from 'node:path';
@@ -47,36 +52,9 @@ import { AppModule } from './app.module';
 import { setSsrListener } from './ssr-fallback.controller';
 ${DEV_PROXY_SNIPPET}
 
-function resolveWebOutputRoot(): string {
-  const candidates = [
-    join(__dirname, '../../web/.output'),
-    join(process.cwd(), 'apps/web/.output'),
-  ];
+${ssr.prelude}
 
-  for (const candidate of candidates) {
-    if (existsSync(join(candidate, 'server/index.mjs'))) {
-      return candidate;
-    }
-  }
-
-  throw new Error(
-    'Nuxt SSR build output not found. Run "pnpm build" from the monorepo root first.',
-  );
-}
-
-async function mountSsrProduction(app: NestExpressApplication): Promise<void> {
-  const outputRoot = resolveWebOutputRoot();
-  const listenerPath = join(outputRoot, 'server/index.mjs');
-  const publicPath = join(outputRoot, 'public');
-
-  const { listener } = (await import(
-    pathToFileURL(listenerPath).href
-  )) as { listener: RequestHandler };
-
-  const expressApp = app.getHttpAdapter().getInstance();
-  expressApp.use(express.static(publicPath));
-  setSsrListener(listener);
-}
+${ssr.mount}
 
 async function bootstrap() {
   const isProduction = process.env.NODE_ENV === 'production';
@@ -156,6 +134,102 @@ void bootstrap();
 `;
 }
 
+
+function ssrProductionBlocks(
+  options: ScaffoldOptions,
+  adapter: 'express' | 'fastify',
+): { prelude: string; mount: string } {
+  if (options.frontend === 'nuxt') {
+    const prelude = `function resolveWebOutputRoot(): string {
+  const candidates = [
+    join(__dirname, '../../web/.output'),
+    join(process.cwd(), 'apps/web/.output'),
+  ];
+
+  for (const candidate of candidates) {
+    if (existsSync(join(candidate, 'server/index.mjs'))) {
+      return candidate;
+    }
+  }
+
+  throw new Error(
+    'Nuxt SSR build output not found. Run "pnpm build" from the monorepo root first.',
+  );
+}`;
+
+    const mountExpress = `async function mountSsrProduction(app: NestExpressApplication): Promise<void> {
+  const outputRoot = resolveWebOutputRoot();
+  const listenerPath = join(outputRoot, 'server/index.mjs');
+  const publicPath = join(outputRoot, 'public');
+
+  const { listener } = (await import(
+    pathToFileURL(listenerPath).href
+  )) as { listener: RequestHandler };
+
+  const expressApp = app.getHttpAdapter().getInstance();
+  expressApp.use(express.static(publicPath));
+  setSsrListener(listener);
+}`;
+
+    const mountFastify = `async function mountSsrProduction(app: NestFastifyApplication): Promise<void> {
+  const outputRoot = resolveWebOutputRoot();
+  const listenerPath = join(outputRoot, 'server/index.mjs');
+  const publicPath = join(outputRoot, 'public');
+
+  const { listener } = (await import(
+    pathToFileURL(listenerPath).href
+  )) as { listener: RequestHandler };
+
+  const fastify = app.getHttpAdapter().getInstance();
+  await ensureMiddie(fastify);
+  await fastify.register(fastifyStatic, {
+    root: publicPath,
+    wildcard: false,
+  });
+  setSsrListener(listener);
+}`;
+
+    return {
+      prelude,
+      mount: adapter === 'express' ? mountExpress : mountFastify,
+    };
+  }
+
+  if (options.frontend === 'angular') {
+    const prelude = `function resolveAngularSsrServerPath(): string {
+  const candidates = [
+    join(__dirname, '../../web/dist/server/server.mjs'),
+    join(process.cwd(), 'apps/web/dist/server/server.mjs'),
+  ];
+
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  throw new Error(
+    'Angular SSR build output not found. Run "pnpm build" from the monorepo root first.',
+  );
+}`;
+
+    const mount = `async function mountSsrProduction(
+  app: ${adapter === 'express' ? 'NestExpressApplication' : 'NestFastifyApplication'},
+): Promise<void> {
+  const serverPath = resolveAngularSsrServerPath();
+  const { reqHandler } = (await import(
+    pathToFileURL(serverPath).href
+  )) as { reqHandler: RequestHandler };
+
+  setSsrListener(reqHandler);
+}`;
+
+    return { prelude, mount };
+  }
+
+  throw new Error(`SSR production mount is not supported for ${options.frontend}`);
+}
+
 function spaResolveBlock(options: ScaffoldOptions): {
   resolve: string;
   mountExpress: string;
@@ -203,6 +277,48 @@ function spaResolveBlock(options: ScaffoldOptions): {
   setSpaIndexHtml(indexHtml);
 }`,
       errorLabel: 'Nuxt SPA',
+    };
+  }
+
+  if (options.frontend === 'angular') {
+    return {
+      resolve: `function resolveWebOutputRoot(): string {
+  const candidates = [
+    join(__dirname, '../../web/dist'),
+    join(process.cwd(), 'apps/web/dist'),
+  ];
+
+  for (const candidate of candidates) {
+    if (existsSync(join(candidate, 'browser/index.html'))) {
+      return join(candidate, 'browser');
+    }
+  }
+
+  throw new Error(
+    'Angular SPA build output not found. Run "pnpm build" from the monorepo root first.',
+  );
+}`,
+      mountExpress: `async function mountSpaProduction(app: NestExpressApplication): Promise<void> {
+  const outputRoot = resolveWebOutputRoot();
+  const indexHtml = readFileSync(join(outputRoot, 'index.html'), 'utf8');
+
+  const expressApp = app.getHttpAdapter().getInstance();
+  expressApp.use(express.static(outputRoot));
+  setSpaIndexHtml(indexHtml);
+}`,
+      mountFastify: `async function mountSpaProduction(app: NestFastifyApplication): Promise<void> {
+  const outputRoot = resolveWebOutputRoot();
+  const indexHtml = readFileSync(join(outputRoot, 'index.html'), 'utf8');
+
+  const fastify = app.getHttpAdapter().getInstance();
+  await ensureMiddie(fastify);
+  await fastify.register(fastifyStatic, {
+    root: outputRoot,
+    wildcard: false,
+  });
+  setSpaIndexHtml(indexHtml);
+}`,
+      errorLabel: 'Angular SPA',
     };
   }
 
@@ -347,7 +463,10 @@ void bootstrap();
 `;
 }
 
-function generateFastifySsrMain(admin: boolean): string {
+function generateFastifySsrMain(
+  admin: boolean,
+  options: ScaffoldOptions,
+): string {
   const adminRegister = admin
     ? `
   await fastify.register(fastifyView, {
@@ -356,6 +475,8 @@ function generateFastifySsrMain(admin: boolean): string {
     layout: 'layouts/main.hbs',
   });`
     : '';
+
+  const ssr = ssrProductionBlocks(options, 'fastify');
 
   return `import { existsSync } from 'node:fs';
 import type { Socket } from 'node:net';
@@ -385,40 +506,9 @@ async function ensureMiddie(fastify: FastifyInstance): Promise<void> {
   }
 }
 
-function resolveWebOutputRoot(): string {
-  const candidates = [
-    join(__dirname, '../../web/.output'),
-    join(process.cwd(), 'apps/web/.output'),
-  ];
+${ssr.prelude}
 
-  for (const candidate of candidates) {
-    if (existsSync(join(candidate, 'server/index.mjs'))) {
-      return candidate;
-    }
-  }
-
-  throw new Error(
-    'Nuxt SSR build output not found. Run "pnpm build" from the monorepo root first.',
-  );
-}
-
-async function mountSsrProduction(app: NestFastifyApplication): Promise<void> {
-  const outputRoot = resolveWebOutputRoot();
-  const listenerPath = join(outputRoot, 'server/index.mjs');
-  const publicPath = join(outputRoot, 'public');
-
-  const { listener } = (await import(
-    pathToFileURL(listenerPath).href
-  )) as { listener: RequestHandler };
-
-  const fastify = app.getHttpAdapter().getInstance();
-  await ensureMiddie(fastify);
-  await fastify.register(fastifyStatic, {
-    root: publicPath,
-    wildcard: false,
-  });
-  setSsrListener(listener);
-}
+${ssr.mount}
 
 async function bootstrap() {
   const isProduction = process.env.NODE_ENV === 'production';

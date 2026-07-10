@@ -2,7 +2,7 @@ import Handlebars from 'handlebars';
 import { readFileSync } from 'node:fs';
 import { WEB_DEV_DEFAULT_PORT, NEST_DEFAULT_PORT } from './constants.js';
 import { FRONTEND_LABELS } from './frontend.js';
-import { isNuxtSsr, isSpaFrontend } from './frontend.js';
+import { isSsrFrontend, isSpaFrontend } from './frontend.js';
 import { needsDockerServices } from './generators/docker-compose.js';
 import type { TemplateContext } from './types.js';
 import { dockerInfraServiceNames } from './generators/docker-compose.js';
@@ -31,9 +31,10 @@ export function toContext(
     sharedScope: `@${options.projectName}/shared`,
     frontendLabel: FRONTEND_LABELS[options.frontend],
     isNuxt: options.frontend === 'nuxt',
-    isVite: options.frontend !== 'nuxt',
-    isNuxtSsr: isNuxtSsr(options),
-    isSsr: isNuxtSsr(options),
+    isAngular: options.frontend === 'angular',
+    isVite: options.frontend.startsWith('vite-'),
+    isNuxtSsr: isSsrFrontend(options),
+    isSsr: isSsrFrontend(options),
     isSpa: isSpaFrontend(options),
     isFastify: options.httpAdapter === 'fastify',
     isExpress: options.httpAdapter === 'express',

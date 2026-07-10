@@ -5,7 +5,7 @@ import {
   nestApiBaseUrl,
 } from '../constants.js';
 import { defaultDatabaseUrl } from '../database.js';
-import { isNuxtSsr } from '../frontend.js';
+import { isSsrFrontend } from '../frontend.js';
 
 export function generateEnvExample(options: ScaffoldOptions): string {
   const lines = [
@@ -26,9 +26,9 @@ export function generateEnvExample(options: ScaffoldOptions): string {
     '',
   ];
 
-  if (isNuxtSsr(options)) {
+  if (isSsrFrontend(options)) {
     lines.push(
-      '# Absolute API base for Nuxt SSR fetches (Nitro does not route /api/* to Nest)',
+      '# Absolute API base for SSR fetches (frontend dev server does not route /api/* to Nest)',
       `API_BASE_SERVER=${nestApiBaseUrl()}`,
       '',
     );

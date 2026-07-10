@@ -5,7 +5,7 @@ import {
 } from '../constants.js';
 
 const VITE_PLUGINS: Record<
-  Exclude<ScaffoldOptions['frontend'], 'nuxt'>,
+  Exclude<ScaffoldOptions['frontend'], 'nuxt' | 'angular'>,
   { importPlugin: string; plugin: string }
 > = {
   'vite-react': {
@@ -23,8 +23,8 @@ const VITE_PLUGINS: Record<
 };
 
 export function generateViteConfig(options: ScaffoldOptions): string {
-  if (options.frontend === 'nuxt') {
-    throw new Error('generateViteConfig called for nuxt frontend');
+  if (options.frontend === 'nuxt' || options.frontend === 'angular') {
+    throw new Error(`generateViteConfig called for ${options.frontend} frontend`);
   }
 
   const { importPlugin, plugin } = VITE_PLUGINS[options.frontend];

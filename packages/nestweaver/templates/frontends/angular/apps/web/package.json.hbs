@@ -1,0 +1,39 @@
+{
+  "name": "web",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "ng": "ng",
+    "dev": "ng serve --port {{webDevPort}} --host ${WEB_DEV_HOST:-127.0.0.1} --proxy-config proxy.conf.js",
+    "build": "ng build",
+    "watch": "ng build --watch --configuration development"
+  },
+  "dependencies": {
+    "{{sharedScope}}": "workspace:*",
+    "@angular/common": "^22.0.6",
+    "@angular/compiler": "^22.0.6",
+    "@angular/core": "^22.0.6",
+    "@angular/forms": "^22.0.6",
+    "@angular/platform-browser": "^22.0.6",
+    "@angular/platform-browser-dynamic": "^22.0.6",
+    "@angular/router": "^22.0.6",
+{{#if isSsr}}
+    "@angular/platform-server": "^22.0.6",
+    "@angular/ssr": "^22.0.6",
+    "express": "^5.1.0",
+{{/if}}
+    "rxjs": "~7.8.0",
+    "tslib": "^2.3.0",
+    "zone.js": "~0.16.0"
+  },
+  "devDependencies": {
+    "@angular-devkit/build-angular": "^22.0.6",
+    "@angular/cli": "^22.0.6",
+    "@angular/compiler-cli": "^22.0.6",
+{{#if isSsr}}
+    "@types/express": "^5.0.1",
+    "@types/node": "^20.17.19",
+{{/if}}
+    "typescript": "~6.0.3"
+  }
+}

@@ -6,7 +6,7 @@ import {
   ORM_LABELS,
   ormsForDatabase,
 } from './database.js';
-import { FRONTEND_LABELS } from './frontend.js';
+import { FRONTEND_LABELS, supportsRenderMode } from './frontend.js';
 import type {
   Database,
   Frontend,
@@ -49,6 +49,7 @@ export async function collectOptions(
     message: 'Frontend framework',
     choices: [
       { value: 'nuxt', name: FRONTEND_LABELS.nuxt },
+      { value: 'angular', name: FRONTEND_LABELS.angular },
       { value: 'vite-react', name: FRONTEND_LABELS['vite-react'] },
       { value: 'vite-vue', name: FRONTEND_LABELS['vite-vue'] },
       { value: 'vite-svelte', name: FRONTEND_LABELS['vite-svelte'] },
@@ -58,9 +59,9 @@ export async function collectOptions(
 
   let renderMode: RenderMode = 'ssr';
 
-  if (frontend === 'nuxt') {
+  if (supportsRenderMode(frontend)) {
     renderMode = await select<RenderMode>({
-      message: 'Nuxt rendering mode',
+      message: `${FRONTEND_LABELS[frontend]} rendering mode`,
       choices: [
         { value: 'ssr', name: 'SSR (server-side rendering)' },
         { value: 'spa', name: 'SPA (client-only, static export style)' },
@@ -126,10 +127,9 @@ export async function collectOptions(
     console.log('  Admin panel uses Handlebars via @fastify/view.');
   }
 
-  const frontendSummary =
-    frontend === 'nuxt'
-      ? `${FRONTEND_LABELS.nuxt} (${renderMode.toUpperCase()})`
-      : `${FRONTEND_LABELS[frontend]} (SPA)`;
+  const frontendSummary = supportsRenderMode(frontend)
+    ? `${FRONTEND_LABELS[frontend]} (${renderMode.toUpperCase()})`
+    : `${FRONTEND_LABELS[frontend]} (SPA)`;
 
   console.log('');
   console.log(`Scaffolding ${projectName} → ${targetDir}`);
