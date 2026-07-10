@@ -251,13 +251,25 @@
         if (!form) return;
         form.addEventListener('submit', async (event) => {
           event.preventDefault();
-          const res = await fetch(form.action, {
-            method: 'POST',
-            body: new FormData(form),
-            redirect: 'manual',
-          });
-          if (res.status === 301 || res.status === 302) {
-            this.handleRedirect(res.headers.get('Location'));
+          try {
+            const body = new URLSearchParams(new FormData(form));
+            const res = await fetch(form.action, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+              },
+              body,
+              redirect: 'manual',
+            });
+            if (res.status >= 300 && res.status < 400) {
+              this.handleRedirect(res.headers.get('Location'));
+              return;
+            }
+            if (!res.ok) {
+              showToast('error', 'Could not save the record. Please try again.');
+            }
+          } catch {
+            showToast('error', 'Could not save the record. Please try again.');
           }
         });
       },
