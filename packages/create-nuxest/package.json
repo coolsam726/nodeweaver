@@ -1,7 +1,7 @@
 {
   "name": "create-nuxest",
   "version": "0.1.0",
-  "description": "Create a NestJS + Nuxt monorepo with nuxest",
+  "description": "Create a NestJS + Nuxt/Vite monorepo with nuxest",
   "type": "module",
   "bin": {
     "create-nuxest": "./dist/index.js"

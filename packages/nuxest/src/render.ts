@@ -1,6 +1,8 @@
 import Handlebars from 'handlebars';
 import { readFileSync } from 'node:fs';
-import { NEST_DEFAULT_PORT, NUXT_DEV_DEFAULT_PORT } from './constants.js';
+import { WEB_DEV_DEFAULT_PORT, NEST_DEFAULT_PORT } from './constants.js';
+import { FRONTEND_LABELS } from './frontend.js';
+import { isNuxtSsr, isSpaFrontend } from './frontend.js';
 import { needsDockerServices } from './generators/docker-compose.js';
 import type { TemplateContext } from './types.js';
 import { dockerInfraServiceNames } from './generators/docker-compose.js';
@@ -27,8 +29,12 @@ export function toContext(
   return {
     ...options,
     sharedScope: `@${options.projectName}/shared`,
-    isSsr: options.nuxtMode === 'ssr',
-    isSpa: options.nuxtMode === 'spa',
+    frontendLabel: FRONTEND_LABELS[options.frontend],
+    isNuxt: options.frontend === 'nuxt',
+    isVite: options.frontend !== 'nuxt',
+    isNuxtSsr: isNuxtSsr(options),
+    isSsr: isNuxtSsr(options),
+    isSpa: isSpaFrontend(options),
     isFastify: options.httpAdapter === 'fastify',
     isExpress: options.httpAdapter === 'express',
     hasDatabase: options.orm !== 'none',
@@ -36,12 +42,11 @@ export function toContext(
     infraServices: dockerInfraServiceNames(options).join(' '),
     hasInfraServices: dockerInfraServiceNames(options).length > 0,
     nestPort: NEST_DEFAULT_PORT,
-    nuxtDevPort: NUXT_DEV_DEFAULT_PORT,
-    nuxtMode: options.nuxtMode,
+    webDevPort: WEB_DEV_DEFAULT_PORT,
+    nuxtDevPort: WEB_DEV_DEFAULT_PORT,
     admin: options.admin,
     orm: options.orm,
   } as TemplateContext & {
-    nuxtMode: string;
     admin: boolean;
     orm: string;
   };

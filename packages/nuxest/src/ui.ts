@@ -19,7 +19,7 @@ function readPackageVersion(): string {
 export function printBanner(): void {
   const version = readPackageVersion();
   console.log('');
-  console.log(`  nuxest ${version}  ·  NestJS + Nuxt monorepo scaffolder`);
+  console.log(`  nuxest ${version}  ·  NestJS + frontend monorepo scaffolder`);
   console.log('');
 }
 
@@ -42,12 +42,13 @@ Options:
   -v, --version      Show version
 
 You will be asked interactively:
+  • Frontend (Nuxt, Vite + React/Vue/Svelte)
   • Database (PostgreSQL, MySQL, SQLite, MongoDB, or none)
   • ORM / ODM (filtered by database — e.g. Mongoose for MongoDB)
   • Task scheduling (@nestjs/schedule)
   • Job queues (BullMQ + Redis)
   • HTTP adapter (Fastify or Express)
   • MVC admin panel (Handlebars at /admin)
-  • Nuxt mode (SSR or SPA)
+  • Nuxt mode (SSR or SPA — when Nuxt is selected)
 `);
 }

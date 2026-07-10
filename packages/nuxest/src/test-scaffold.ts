@@ -12,6 +12,7 @@ if (existsSync(targetDir)) {
 const options: ScaffoldOptions = {
   projectName: name,
   targetDir,
+  frontend: 'nuxt',
   orm: 'prisma',
   database: 'postgresql',
   scheduling: true,

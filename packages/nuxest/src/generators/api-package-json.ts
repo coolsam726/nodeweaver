@@ -143,7 +143,7 @@ export function generateApiPackageJson(
 
   const scripts: Record<string, string> = {
     build: 'nest build',
-    dev: 'ENABLE_NUXT_PROXY=true nest start --watch',
+    dev: 'ENABLE_WEB_PROXY=true nest start --watch',
     format: 'prettier --write "src/**/*.ts" "test/**/*.ts"',
     start: 'nest start',
     'start:debug': 'nest start --debug --watch',

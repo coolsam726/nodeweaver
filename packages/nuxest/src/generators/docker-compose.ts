@@ -1,10 +1,11 @@
 import { dockerDatabaseUrl } from '../database.js';
 import {
   NEST_DEFAULT_PORT,
-  NUXT_DEV_DEFAULT_PORT,
+  WEB_DEV_DEFAULT_PORT,
   nestApiBaseUrl,
   scaffoldHostIds,
 } from '../constants.js';
+import { isNuxtSsr } from '../frontend.js';
 import type { ScaffoldOptions } from '../types.js';
 
 /** Docker Compose is always generated for scaffolded projects. */
@@ -135,16 +136,26 @@ function dependsOnServices(options: ScaffoldOptions): string[] {
 }
 
 function appEnvironment(options: ScaffoldOptions): string[] {
+  const { uid, gid } = scaffoldHostIds();
   const lines = [
     '    environment:',
     '      CI: "true"',
+    `      APP_UID: ${uid}`,
+    `      APP_GID: ${gid}`,
     `      PORT: ${NEST_DEFAULT_PORT}`,
+    '      ENABLE_WEB_PROXY: "true"',
+    `      WEB_DEV_URL: http://127.0.0.1:${WEB_DEV_DEFAULT_PORT}`,
+    `      WEB_DEV_PORT: ${WEB_DEV_DEFAULT_PORT}`,
+    '      WEB_DEV_HOST: 0.0.0.0',
     '      ENABLE_NUXT_PROXY: "true"',
-    `      NUXT_DEV_URL: http://127.0.0.1:${NUXT_DEV_DEFAULT_PORT}`,
-    `      NUXT_DEV_PORT: ${NUXT_DEV_DEFAULT_PORT}`,
+    `      NUXT_DEV_URL: http://127.0.0.1:${WEB_DEV_DEFAULT_PORT}`,
+    `      NUXT_DEV_PORT: ${WEB_DEV_DEFAULT_PORT}`,
     '      NUXT_DEV_HOST: 0.0.0.0',
-    `      API_BASE_SERVER: ${nestApiBaseUrl()}`,
   ];
+
+  if (isNuxtSsr(options)) {
+    lines.push(`      API_BASE_SERVER: ${nestApiBaseUrl()}`);
+  }
 
   if (options.orm !== 'none' && options.database) {
     lines.push(
@@ -177,18 +188,16 @@ function appVolumes(options: ScaffoldOptions): string[] {
 }
 
 export function generateDockerCompose(options: ScaffoldOptions): string {
-  const { uid, gid } = scaffoldHostIds();
   const lines: string[] = [
     'services:',
     '  app:',
     '    build:',
     '      context: .',
     '      target: dev',
-    `    user: "${uid}:${gid}"`,
     '    restart: unless-stopped',
     '    ports:',
     `      - '${NEST_DEFAULT_PORT}:${NEST_DEFAULT_PORT}'`,
-    `      - '${NUXT_DEV_DEFAULT_PORT}:${NUXT_DEV_DEFAULT_PORT}'`,
+    `      - '${WEB_DEV_DEFAULT_PORT}:${WEB_DEV_DEFAULT_PORT}'`,
     ...appEnvironment(options),
     ...dependsOnServices(options),
     ...appVolumes(options),

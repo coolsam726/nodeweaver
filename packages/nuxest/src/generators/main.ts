@@ -1,5 +1,22 @@
 import type { ScaffoldOptions } from '../types.js';
-import { NEST_DEFAULT_PORT, NUXT_DEV_DEFAULT_PORT } from '../constants.js';
+import { isNuxtSsr } from '../frontend.js';
+import { NEST_DEFAULT_PORT, WEB_DEV_DEFAULT_PORT } from '../constants.js';
+
+const DEV_PROXY_SNIPPET = `
+function isWebProxyEnabled(): boolean {
+  return (
+    process.env.ENABLE_WEB_PROXY === 'true' ||
+    process.env.ENABLE_NUXT_PROXY === 'true'
+  );
+}
+
+function webDevTarget(): string {
+  return (
+    process.env.WEB_DEV_URL ??
+    process.env.NUXT_DEV_URL ??
+    'http://127.0.0.1:${WEB_DEV_DEFAULT_PORT}'
+  );
+}`;
 
 export function generateMain(options: ScaffoldOptions): string {
   const adminSetupExpress =
@@ -10,14 +27,14 @@ export function generateMain(options: ScaffoldOptions): string {
       : '';
 
   if (options.httpAdapter === 'express') {
-    return options.nuxtMode === 'ssr'
+    return isNuxtSsr(options)
       ? generateExpressSsrMain(adminSetupExpress)
-      : generateExpressSpaMain(adminSetupExpress);
+      : generateExpressSpaMain(adminSetupExpress, options);
   }
 
-  return options.nuxtMode === 'ssr'
+  return isNuxtSsr(options)
     ? generateFastifySsrMain(options.admin)
-    : generateFastifySpaMain(options.admin);
+    : generateFastifySpaMain(options.admin, options);
 }
 
 function generateExpressSsrMain(adminSetup: string): string {
@@ -32,6 +49,7 @@ import { createProxyMiddleware } from 'http-proxy-middleware';
 import type { NextFunction, Request, Response, RequestHandler } from 'express';
 import { AppModule } from './app.module';
 import { setNuxtListener } from './nuxt-fallback.controller';
+${DEV_PROXY_SNIPPET}
 
 function resolveWebOutputRoot(): string {
   const candidates = [
@@ -66,7 +84,7 @@ async function mountNuxtProduction(app: NestExpressApplication): Promise<void> {
 
 async function bootstrap() {
   const isProduction = process.env.NODE_ENV === 'production';
-  const enableNuxtProxy = process.env.ENABLE_NUXT_PROXY === 'true';
+  const enableWebProxy = isWebProxyEnabled();
 
   const app = await NestFactory.create<NestExpressApplication>(
     AppModule.register(),
@@ -80,9 +98,9 @@ ${adminSetup}
       })
     | undefined;
 
-  if (!isProduction && enableNuxtProxy) {
+  if (!isProduction && enableWebProxy) {
     devProxy = createProxyMiddleware({
-      target: process.env.NUXT_DEV_URL ?? 'http://127.0.0.1:${NUXT_DEV_DEFAULT_PORT}',
+      target: webDevTarget(),
       changeOrigin: true,
       ws: true,
     }) as typeof devProxy;
@@ -119,19 +137,19 @@ ${adminSetup}
     });
   }
 
-  logStartup(isProduction, enableNuxtProxy, port);
+  logStartup(isProduction, enableWebProxy, port);
 }
 
 function logStartup(
   isProduction: boolean,
-  enableNuxtProxy: boolean,
+  enableWebProxy: boolean,
   port: number,
 ): void {
   if (isProduction) {
     console.log(\`Production server listening on http://localhost:\${port}\`);
-  } else if (enableNuxtProxy) {
+  } else if (enableWebProxy) {
     console.log(
-      \`Dev server listening on http://localhost:\${port} (proxying frontend to Nuxt dev)\`,
+      \`Dev server listening on http://localhost:\${port} (proxying frontend dev server)\`,
     );
   } else {
     console.log(\`API server listening on http://localhost:\${port}\`);
@@ -142,19 +160,15 @@ void bootstrap();
 `;
 }
 
-function generateExpressSpaMain(adminSetup: string): string {
-  return `import { existsSync, readFileSync } from 'node:fs';
-import type { Socket } from 'node:net';
-import { join } from 'node:path';
-import { NestFactory } from '@nestjs/core';
-import { NestExpressApplication } from '@nestjs/platform-express';
-import express from 'express';
-import { createProxyMiddleware } from 'http-proxy-middleware';
-import type { NextFunction, Request, Response, RequestHandler } from 'express';
-import { AppModule } from './app.module';
-import { setSpaIndexHtml } from './nuxt-spa-fallback.controller';
-
-function resolveWebOutputRoot(): string {
+function spaResolveBlock(options: ScaffoldOptions): {
+  resolve: string;
+  mountExpress: string;
+  mountFastify: string;
+  errorLabel: string;
+} {
+  if (options.frontend === 'nuxt') {
+    return {
+      resolve: `function resolveWebOutputRoot(): string {
   const candidates = [
     join(__dirname, '../../web/.output'),
     join(process.cwd(), 'apps/web/.output'),
@@ -169,9 +183,8 @@ function resolveWebOutputRoot(): string {
   throw new Error(
     'Nuxt SPA build output not found. Run "pnpm build" from the monorepo root first.',
   );
-}
-
-async function mountSpaProduction(app: NestExpressApplication): Promise<void> {
+}`,
+      mountExpress: `async function mountSpaProduction(app: NestExpressApplication): Promise<void> {
   const outputRoot = resolveWebOutputRoot();
   const publicPath = join(outputRoot, 'public');
   const indexHtml = readFileSync(join(publicPath, 'index.html'), 'utf8');
@@ -179,11 +192,90 @@ async function mountSpaProduction(app: NestExpressApplication): Promise<void> {
   const expressApp = app.getHttpAdapter().getInstance();
   expressApp.use(express.static(publicPath));
   setSpaIndexHtml(indexHtml);
+}`,
+      mountFastify: `async function mountSpaProduction(app: NestFastifyApplication): Promise<void> {
+  const outputRoot = resolveWebOutputRoot();
+  const publicPath = join(outputRoot, 'public');
+  const indexHtml = readFileSync(join(publicPath, 'index.html'), 'utf8');
+
+  const fastify = app.getHttpAdapter().getInstance();
+  await ensureMiddie(fastify);
+  await fastify.register(fastifyStatic, {
+    root: publicPath,
+    wildcard: false,
+  });
+  setSpaIndexHtml(indexHtml);
+}`,
+      errorLabel: 'Nuxt SPA',
+    };
+  }
+
+  return {
+    resolve: `function resolveWebOutputRoot(): string {
+  const candidates = [
+    join(__dirname, '../../web/dist'),
+    join(process.cwd(), 'apps/web/dist'),
+  ];
+
+  for (const candidate of candidates) {
+    if (existsSync(join(candidate, 'index.html'))) {
+      return candidate;
+    }
+  }
+
+  throw new Error(
+    'Vite build output not found. Run "pnpm build" from the monorepo root first.',
+  );
+}`,
+    mountExpress: `async function mountSpaProduction(app: NestExpressApplication): Promise<void> {
+  const outputRoot = resolveWebOutputRoot();
+  const indexHtml = readFileSync(join(outputRoot, 'index.html'), 'utf8');
+
+  const expressApp = app.getHttpAdapter().getInstance();
+  expressApp.use(express.static(outputRoot));
+  setSpaIndexHtml(indexHtml);
+}`,
+    mountFastify: `async function mountSpaProduction(app: NestFastifyApplication): Promise<void> {
+  const outputRoot = resolveWebOutputRoot();
+  const indexHtml = readFileSync(join(outputRoot, 'index.html'), 'utf8');
+
+  const fastify = app.getHttpAdapter().getInstance();
+  await ensureMiddie(fastify);
+  await fastify.register(fastifyStatic, {
+    root: outputRoot,
+    wildcard: false,
+  });
+  setSpaIndexHtml(indexHtml);
+}`,
+    errorLabel: 'Vite SPA',
+  };
 }
+
+function generateExpressSpaMain(
+  adminSetup: string,
+  options: ScaffoldOptions,
+): string {
+  const spa = spaResolveBlock(options);
+
+  return `import { existsSync, readFileSync } from 'node:fs';
+import type { Socket } from 'node:net';
+import { join } from 'node:path';
+import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import express from 'express';
+import { createProxyMiddleware } from 'http-proxy-middleware';
+import type { NextFunction, Request, Response, RequestHandler } from 'express';
+import { AppModule } from './app.module';
+import { setSpaIndexHtml } from './spa-fallback.controller';
+${DEV_PROXY_SNIPPET}
+
+${spa.resolve}
+
+${spa.mountExpress}
 
 async function bootstrap() {
   const isProduction = process.env.NODE_ENV === 'production';
-  const enableNuxtProxy = process.env.ENABLE_NUXT_PROXY === 'true';
+  const enableWebProxy = isWebProxyEnabled();
 
   const app = await NestFactory.create<NestExpressApplication>(
     AppModule.register(),
@@ -197,9 +289,9 @@ ${adminSetup}
       })
     | undefined;
 
-  if (!isProduction && enableNuxtProxy) {
+  if (!isProduction && enableWebProxy) {
     devProxy = createProxyMiddleware({
-      target: process.env.NUXT_DEV_URL ?? 'http://127.0.0.1:${NUXT_DEV_DEFAULT_PORT}',
+      target: webDevTarget(),
       changeOrigin: true,
       ws: true,
     }) as typeof devProxy;
@@ -236,19 +328,19 @@ ${adminSetup}
     });
   }
 
-  logStartup(isProduction, enableNuxtProxy, port);
+  logStartup(isProduction, enableWebProxy, port);
 }
 
 function logStartup(
   isProduction: boolean,
-  enableNuxtProxy: boolean,
+  enableWebProxy: boolean,
   port: number,
 ): void {
   if (isProduction) {
     console.log(\`Production SPA server listening on http://localhost:\${port}\`);
-  } else if (enableNuxtProxy) {
+  } else if (enableWebProxy) {
     console.log(
-      \`Dev server listening on http://localhost:\${port} (proxying frontend to Nuxt dev)\`,
+      \`Dev server listening on http://localhost:\${port} (proxying frontend dev server)\`,
     );
   } else {
     console.log(\`API server listening on http://localhost:\${port}\`);
@@ -289,6 +381,7 @@ import { createProxyMiddleware } from 'http-proxy-middleware';
 import type { NextFunction, Request, Response, RequestHandler } from 'express';
 import { AppModule } from './app.module';
 import { setNuxtListener } from './nuxt-fallback.controller';
+${DEV_PROXY_SNIPPET}
 
 async function ensureMiddie(fastify: FastifyInstance): Promise<void> {
   if (!fastify.hasDecorator('use')) {
@@ -333,7 +426,7 @@ async function mountNuxtProduction(app: NestFastifyApplication): Promise<void> {
 
 async function bootstrap() {
   const isProduction = process.env.NODE_ENV === 'production';
-  const enableNuxtProxy = process.env.ENABLE_NUXT_PROXY === 'true';
+  const enableWebProxy = isWebProxyEnabled();
 
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule.register(),
@@ -350,9 +443,9 @@ ${adminRegister}
       })
     | undefined;
 
-  if (!isProduction && enableNuxtProxy) {
+  if (!isProduction && enableWebProxy) {
     devProxy = createProxyMiddleware({
-      target: process.env.NUXT_DEV_URL ?? 'http://127.0.0.1:${NUXT_DEV_DEFAULT_PORT}',
+      target: webDevTarget(),
       changeOrigin: true,
       ws: true,
     }) as typeof devProxy;
@@ -389,19 +482,19 @@ ${adminRegister}
     });
   }
 
-  logStartup(isProduction, enableNuxtProxy, port);
+  logStartup(isProduction, enableWebProxy, port);
 }
 
 function logStartup(
   isProduction: boolean,
-  enableNuxtProxy: boolean,
+  enableWebProxy: boolean,
   port: number,
 ): void {
   if (isProduction) {
     console.log(\`Production server listening on http://localhost:\${port}\`);
-  } else if (enableNuxtProxy) {
+  } else if (enableWebProxy) {
     console.log(
-      \`Dev server listening on http://localhost:\${port} (proxying frontend to Nuxt dev)\`,
+      \`Dev server listening on http://localhost:\${port} (proxying frontend dev server)\`,
     );
   } else {
     console.log(\`API server listening on http://localhost:\${port}\`);
@@ -412,7 +505,10 @@ void bootstrap();
 `;
 }
 
-function generateFastifySpaMain(admin: boolean): string {
+function generateFastifySpaMain(
+  admin: boolean,
+  options: ScaffoldOptions,
+): string {
   const adminRegister = admin
     ? `
   await fastify.register(fastifyView, {
@@ -421,6 +517,8 @@ function generateFastifySpaMain(admin: boolean): string {
     layout: 'layouts/main.hbs',
   });`
     : '';
+
+  const spa = spaResolveBlock(options);
 
   return `import { existsSync, readFileSync } from 'node:fs';
 import type { Socket } from 'node:net';
@@ -440,7 +538,8 @@ import type { FastifyInstance } from 'fastify';${
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import type { NextFunction, Request, Response, RequestHandler } from 'express';
 import { AppModule } from './app.module';
-import { setSpaIndexHtml } from './nuxt-spa-fallback.controller';
+import { setSpaIndexHtml } from './spa-fallback.controller';
+${DEV_PROXY_SNIPPET}
 
 async function ensureMiddie(fastify: FastifyInstance): Promise<void> {
   if (!fastify.hasDecorator('use')) {
@@ -448,40 +547,13 @@ async function ensureMiddie(fastify: FastifyInstance): Promise<void> {
   }
 }
 
-function resolveWebOutputRoot(): string {
-  const candidates = [
-    join(__dirname, '../../web/.output'),
-    join(process.cwd(), 'apps/web/.output'),
-  ];
+${spa.resolve}
 
-  for (const candidate of candidates) {
-    if (existsSync(join(candidate, 'public/index.html'))) {
-      return candidate;
-    }
-  }
-
-  throw new Error(
-    'Nuxt SPA build output not found. Run "pnpm build" from the monorepo root first.',
-  );
-}
-
-async function mountSpaProduction(app: NestFastifyApplication): Promise<void> {
-  const outputRoot = resolveWebOutputRoot();
-  const publicPath = join(outputRoot, 'public');
-  const indexHtml = readFileSync(join(publicPath, 'index.html'), 'utf8');
-
-  const fastify = app.getHttpAdapter().getInstance();
-  await ensureMiddie(fastify);
-  await fastify.register(fastifyStatic, {
-    root: publicPath,
-    wildcard: false,
-  });
-  setSpaIndexHtml(indexHtml);
-}
+${spa.mountFastify}
 
 async function bootstrap() {
   const isProduction = process.env.NODE_ENV === 'production';
-  const enableNuxtProxy = process.env.ENABLE_NUXT_PROXY === 'true';
+  const enableWebProxy = isWebProxyEnabled();
 
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule.register(),
@@ -498,9 +570,9 @@ ${adminRegister}
       })
     | undefined;
 
-  if (!isProduction && enableNuxtProxy) {
+  if (!isProduction && enableWebProxy) {
     devProxy = createProxyMiddleware({
-      target: process.env.NUXT_DEV_URL ?? 'http://127.0.0.1:${NUXT_DEV_DEFAULT_PORT}',
+      target: webDevTarget(),
       changeOrigin: true,
       ws: true,
     }) as typeof devProxy;
@@ -537,19 +609,19 @@ ${adminRegister}
     });
   }
 
-  logStartup(isProduction, enableNuxtProxy, port);
+  logStartup(isProduction, enableWebProxy, port);
 }
 
 function logStartup(
   isProduction: boolean,
-  enableNuxtProxy: boolean,
+  enableWebProxy: boolean,
   port: number,
 ): void {
   if (isProduction) {
     console.log(\`Production SPA server listening on http://localhost:\${port}\`);
-  } else if (enableNuxtProxy) {
+  } else if (enableWebProxy) {
     console.log(
-      \`Dev server listening on http://localhost:\${port} (proxying frontend to Nuxt dev)\`,
+      \`Dev server listening on http://localhost:\${port} (proxying frontend dev server)\`,
     );
   } else {
     console.log(\`API server listening on http://localhost:\${port}\`);

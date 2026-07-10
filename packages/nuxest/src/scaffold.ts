@@ -6,12 +6,14 @@ import { generateApiPackageJson } from './generators/api-package-json.js';
 import { generateAppModule } from './generators/app-module.js';
 import { generateEnvExample } from './generators/env.js';
 import { generateMain } from './generators/main.js';
-import { generateIndexVue, generateNuxtConfig } from './generators/nuxt-config.js';
+import { generateNuxtConfig } from './generators/nuxt-config.js';
+import { generateViteConfig } from './generators/vite-config.js';
 import {
   generateDockerCompose,
   needsDockerServices,
   dockerInfraServiceNames,
 } from './generators/docker-compose.js';
+import { isNuxtSsr, isSpaFrontend } from './frontend.js';
 import { NEST_DEFAULT_PORT } from './constants.js';
 import { generateTypeormDatabaseModule } from './generators/typeorm-database-module.js';
 import { generatePnpmWorkspace } from './generators/pnpm-workspace.js';
@@ -25,11 +27,16 @@ const SKIP = new Set(['node_modules', '.git', 'dist', '.output', '.nuxt']);
 
 export async function scaffoldProject(options: ScaffoldOptions): Promise<void> {
   const context = toContext(options);
-  const { targetDir, projectName, sharedScope } = context;
+  const { targetDir } = context;
 
   mkdirSync(targetDir, { recursive: true });
 
   copyDir(join(TEMPLATES_ROOT, 'base'), targetDir, context);
+  copyDir(
+    join(TEMPLATES_ROOT, 'frontends', options.frontend),
+    targetDir,
+    context,
+  );
   applyFeatures(options, context);
 
   writeGeneratedFiles(options, context);
@@ -63,8 +70,12 @@ function applyFeatures(options: ScaffoldOptions, context: TemplateContext): void
     copyDir(join(features, 'admin', options.httpAdapter), options.targetDir, context);
   }
 
-  if (options.nuxtMode === 'spa') {
-    copyDir(join(features, 'nuxt-spa'), options.targetDir, context);
+  if (isNuxtSsr(options)) {
+    copyDir(join(features, 'nuxt-ssr'), options.targetDir, context);
+  }
+
+  if (isSpaFrontend(options)) {
+    copyDir(join(features, 'spa-fallback'), options.targetDir, context);
   }
 }
 
@@ -81,14 +92,21 @@ function writeGeneratedFiles(
       join(targetDir, 'apps/api/package.json'),
       `${JSON.stringify(generateApiPackageJson(options, sharedScope), null, 2)}\n`,
     ],
-    [join(targetDir, 'apps/web/nuxt.config.ts'), generateNuxtConfig(options)],
-    [
-      join(targetDir, 'apps/web/app/pages/index.vue'),
-      generateIndexVue(options),
-    ],
     [join(targetDir, '.env.example'), generateEnvExample(options)],
     [join(targetDir, 'pnpm-workspace.yaml'), generatePnpmWorkspace(options)],
   ];
+
+  if (options.frontend === 'nuxt') {
+    writes.push([
+      join(targetDir, 'apps/web/nuxt.config.ts'),
+      generateNuxtConfig(options),
+    ]);
+  } else {
+    writes.push([
+      join(targetDir, 'apps/web/vite.config.ts'),
+      generateViteConfig(options),
+    ]);
+  }
 
   if (needsDockerServices(options)) {
     writes.push([

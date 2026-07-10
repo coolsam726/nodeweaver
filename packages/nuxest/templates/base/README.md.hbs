@@ -1,6 +1,6 @@
 # {{projectName}}
 
-NestJS + Nuxt 4 monorepo scaffolded with [nuxest](https://github.com/your-org/nuxest).
+NestJS + {{frontendLabel}} monorepo scaffolded with [nuxest](https://github.com/coolsam726/nuxest).
 
 ## Quick start (Docker — recommended)
 
@@ -14,7 +14,7 @@ Open **http://localhost:{{nestPort}}**
 
 Use `pnpm docker:down` to stop containers.
 
-The `app` container runs as your host user (UID/GID baked in at scaffold time) so `node_modules` is not owned by root. If you have root-owned volumes from an earlier run, reset with `docker compose down -v`.
+The `app` container starts as root briefly to fix ownership on dependency volumes, then runs as your host user (UID/GID baked in at scaffold time). If you still see permission errors from an earlier run, reset volumes with `docker compose down -v` and rebuild.
 
 ## Quick start (local app)
 
@@ -36,7 +36,7 @@ Admin panel: **http://localhost:{{nestPort}}/admin**
 
 | Command | Description |
 |---------|-------------|
-| `pnpm dev` | Nest on `:{{nestPort}}` + Nuxt on `:{{nuxtDevPort}}` (on host) |
+| `pnpm dev` | Nest on `:{{nestPort}}` + frontend on `:{{webDevPort}}` (on host) |
 | `pnpm build` | Production build |
 | `pnpm start:prod` | Run production server |
 | `pnpm test` | API tests |
@@ -48,7 +48,7 @@ Admin panel: **http://localhost:{{nestPort}}/admin**
 
 ```
 apps/api          NestJS backend (HTTP entry, /api/*)
-apps/web          Nuxt 4 frontend ({{nuxtMode}})
+apps/web          {{frontendLabel}} frontend{{#if isNuxt}} ({{nuxtMode}}){{else}} (SPA){{/if}}
 packages/shared   Shared TypeScript types
 ```
 
