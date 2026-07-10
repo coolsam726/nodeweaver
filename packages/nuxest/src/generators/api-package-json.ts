@@ -35,6 +35,10 @@ const ORM: Record<Exclude<ScaffoldOptions['orm'], 'none'>, Deps> = {
   drizzle: {
     'drizzle-orm': '^0.41.0',
   },
+  mongoose: {
+    '@nestjs/mongoose': '^11.0.0',
+    mongoose: '^8.13.0',
+  },
 };
 
 const DB_DRIVER: Record<
@@ -120,13 +124,11 @@ export function generateApiPackageJson(
 
   if (options.orm !== 'none') {
     Object.assign(deps, ORM[options.orm]);
-    if (options.database && options.orm !== 'prisma') {
+    if (options.database && options.orm !== 'prisma' && options.orm !== 'mongoose') {
       Object.assign(deps, DB_DRIVER[options.database]);
     }
-    if (options.orm === 'drizzle' && options.database) {
-      if (options.database === 'postgresql') deps.postgres = '^3.4.5';
-      if (options.database === 'mysql') deps.mysql2 = '^3.14.0';
-      if (options.database === 'sqlite') deps['better-sqlite3'] = '^11.9.1';
+    if (options.orm === 'drizzle' && options.database === 'sqlite') {
+      deps['better-sqlite3'] = '^11.9.1';
     }
   }
 

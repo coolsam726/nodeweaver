@@ -7,9 +7,13 @@
   },
   "scripts": {
     "dev": "concurrently -n api,web -c blue,green \"pnpm --filter api dev\" \"pnpm --filter web dev\"",
+    "dev:docker": "concurrently -k -n api,web -c blue,green \"pnpm --filter api dev\" \"sh -c 'until curl -sf http://127.0.0.1:{{nestPort}}/api/health >/dev/null; do sleep 1; done; pnpm --filter web dev'\"",
     "build": "pnpm --filter web build && pnpm --filter api build",
     "start:prod": "NODE_ENV=production node apps/api/dist/main.js",
-    "test": "pnpm --filter api test && pnpm --filter api test:e2e"
+    "test": "pnpm --filter api test && pnpm --filter api test:e2e",
+    "docker:up": "docker compose up -d --build",
+    "docker:dev": "docker compose up --build",
+    "docker:down": "docker compose down"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

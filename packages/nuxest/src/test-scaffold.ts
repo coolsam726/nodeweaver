@@ -15,7 +15,7 @@ const options: ScaffoldOptions = {
   orm: 'prisma',
   database: 'postgresql',
   scheduling: true,
-  queues: false,
+  queues: true,
   httpAdapter: 'fastify',
   admin: true,
   nuxtMode: 'ssr',

@@ -42,8 +42,8 @@ Options:
   -v, --version      Show version
 
 You will be asked interactively:
-  • ORM (TypeORM, Prisma, Drizzle, or none)
-  • Database (PostgreSQL, MySQL, SQLite, MongoDB)
+  • Database (PostgreSQL, MySQL, SQLite, MongoDB, or none)
+  • ORM / ODM (filtered by database — e.g. Mongoose for MongoDB)
   • Task scheduling (@nestjs/schedule)
   • Job queues (BullMQ + Redis)
   • HTTP adapter (Fastify or Express)

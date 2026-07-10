@@ -4,11 +4,23 @@ Scaffold **NestJS + Nuxt 4** monorepos with an interactive, batteries-included C
 
 ## Create a project
 
+**After publish** (from npm):
+
 ```bash
 npm create nuxest@latest my-app
 pnpm create nuxest my-app
 yarn create nuxest my-app
 bun create nuxest my-app
+```
+
+> **Note:** `pnpm create nuxest my-app` — `nuxest` is the starter, `my-app` is your project folder.
+> Do **not** run `pnpm create my-app` (that looks for a package named `create-my-app` on npm).
+
+**Local development** (from this repo, before publish):
+
+```bash
+pnpm build
+pnpm run create my-app
 ```
 
 Use `.` as the directory name to scaffold into the current folder:
@@ -17,17 +29,29 @@ Use `.` as the directory name to scaffold into the current folder:
 npm create nuxest@latest .
 ```
 
-You'll be prompted for ORM, database, scheduling, queues, HTTP adapter, admin panel, and Nuxt mode (SSR/SPA).
+You'll be prompted for database, ORM/ODM (filtered by database), scheduling, queues, HTTP adapter, admin panel, and Nuxt mode (SSR/SPA).
 
 ## After scaffolding
+
+**Full Docker dev stack** (app + database + Redis, etc.):
+
+```bash
+cd my-app
+docker compose up --build
+```
+
+**Local app with Docker infra only**:
 
 ```bash
 cd my-app
 cp .env.example .env
+docker compose up -d postgres redis   # service names match your choices
 pnpm dev
 ```
 
-Open **http://localhost:3000**
+Every project includes `docker-compose.yml` and a `dev` Dockerfile stage. The `app` service runs `pnpm dev` with hot reload; infrastructure services are included based on your scaffold options.
+
+Open **http://localhost:4000**
 
 ## Development (this repo)
 
@@ -35,11 +59,11 @@ Open **http://localhost:3000**
 pnpm install
 pnpm build
 
-# simulate npm create locally
-pnpm --filter create-nuxest dev my-app
+# local scaffold (same prompts as npm create nuxest)
+pnpm run create my-app
 
-# or via nuxest directly
-pnpm --filter nuxest dev my-app
+# equivalent
+pnpm run create:nuxest my-app
 ```
 
 ## Publish to npm

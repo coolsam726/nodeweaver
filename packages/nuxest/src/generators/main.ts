@@ -1,4 +1,5 @@
 import type { ScaffoldOptions } from '../types.js';
+import { NEST_DEFAULT_PORT, NUXT_DEV_DEFAULT_PORT } from '../constants.js';
 
 export function generateMain(options: ScaffoldOptions): string {
   const adminSetupExpress =
@@ -70,6 +71,7 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(
     AppModule.register(),
   );
+  app.enableShutdownHooks();
 ${adminSetup}
 
   let devProxy:
@@ -80,7 +82,7 @@ ${adminSetup}
 
   if (!isProduction && enableNuxtProxy) {
     devProxy = createProxyMiddleware({
-      target: process.env.NUXT_DEV_URL ?? 'http://127.0.0.1:3001',
+      target: process.env.NUXT_DEV_URL ?? 'http://127.0.0.1:${NUXT_DEV_DEFAULT_PORT}',
       changeOrigin: true,
       ws: true,
     }) as typeof devProxy;
@@ -102,7 +104,7 @@ ${adminSetup}
     await mountNuxtProduction(app);
   }
 
-  const port = Number(process.env.PORT ?? 3000);
+  const port = Number(process.env.PORT ?? ${NEST_DEFAULT_PORT});
   await app.listen(port);
 
   if (devProxy) {
@@ -186,6 +188,7 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(
     AppModule.register(),
   );
+  app.enableShutdownHooks();
 ${adminSetup}
 
   let devProxy:
@@ -196,7 +199,7 @@ ${adminSetup}
 
   if (!isProduction && enableNuxtProxy) {
     devProxy = createProxyMiddleware({
-      target: process.env.NUXT_DEV_URL ?? 'http://127.0.0.1:3001',
+      target: process.env.NUXT_DEV_URL ?? 'http://127.0.0.1:${NUXT_DEV_DEFAULT_PORT}',
       changeOrigin: true,
       ws: true,
     }) as typeof devProxy;
@@ -218,7 +221,7 @@ ${adminSetup}
     await mountSpaProduction(app);
   }
 
-  const port = Number(process.env.PORT ?? 3000);
+  const port = Number(process.env.PORT ?? ${NEST_DEFAULT_PORT});
   await app.listen(port);
 
   if (devProxy) {
@@ -257,12 +260,8 @@ void bootstrap();
 }
 
 function generateFastifySsrMain(admin: boolean): string {
-  const adminImports = admin
-    ? `\nimport fastifyView from '@fastify/view';\nimport handlebars from 'handlebars';`
-    : '';
   const adminRegister = admin
     ? `
-  const fastify = app.getHttpAdapter().getInstance();
   await fastify.register(fastifyView, {
     engine: { handlebars },
     root: join(__dirname, 'views'),
@@ -280,11 +279,22 @@ import {
   NestFastifyApplication,
 } from '@nestjs/platform-fastify';
 import middie from '@fastify/middie';
-import fastifyStatic from '@fastify/static';${adminImports}
+import fastifyStatic from '@fastify/static';
+import type { FastifyInstance } from 'fastify';${
+    admin
+      ? `\nimport fastifyView from '@fastify/view';\nimport handlebars from 'handlebars';`
+      : ''
+  }
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import type { NextFunction, Request, Response, RequestHandler } from 'express';
 import { AppModule } from './app.module';
 import { setNuxtListener } from './nuxt-fallback.controller';
+
+async function ensureMiddie(fastify: FastifyInstance): Promise<void> {
+  if (!fastify.hasDecorator('use')) {
+    await fastify.register(middie);
+  }
+}
 
 function resolveWebOutputRoot(): string {
   const candidates = [
@@ -313,7 +323,7 @@ async function mountNuxtProduction(app: NestFastifyApplication): Promise<void> {
   )) as { listener: RequestHandler };
 
   const fastify = app.getHttpAdapter().getInstance();
-  await fastify.register(middie);
+  await ensureMiddie(fastify);
   await fastify.register(fastifyStatic, {
     root: publicPath,
     wildcard: false,
@@ -329,6 +339,9 @@ async function bootstrap() {
     AppModule.register(),
     new FastifyAdapter(),
   );
+  app.enableShutdownHooks();
+
+  const fastify = app.getHttpAdapter().getInstance();
 ${adminRegister}
 
   let devProxy:
@@ -339,13 +352,12 @@ ${adminRegister}
 
   if (!isProduction && enableNuxtProxy) {
     devProxy = createProxyMiddleware({
-      target: process.env.NUXT_DEV_URL ?? 'http://127.0.0.1:3001',
+      target: process.env.NUXT_DEV_URL ?? 'http://127.0.0.1:${NUXT_DEV_DEFAULT_PORT}',
       changeOrigin: true,
       ws: true,
     }) as typeof devProxy;
 
-    const fastify = app.getHttpAdapter().getInstance();
-    await fastify.register(middie);
+    await ensureMiddie(fastify);
     fastify.use((req: Request, res: Response, next: NextFunction) => {
       const url = req.originalUrl ?? req.url ?? '';
       if (url.startsWith('/api') || url.startsWith('/admin')) {
@@ -362,7 +374,7 @@ ${adminRegister}
     await mountNuxtProduction(app);
   }
 
-  const port = Number(process.env.PORT ?? 3000);
+  const port = Number(process.env.PORT ?? ${NEST_DEFAULT_PORT});
   await app.listen(port, '0.0.0.0');
 
   if (devProxy) {
@@ -401,12 +413,8 @@ void bootstrap();
 }
 
 function generateFastifySpaMain(admin: boolean): string {
-  const adminImports = admin
-    ? `\nimport fastifyView from '@fastify/view';\nimport handlebars from 'handlebars';`
-    : '';
   const adminRegister = admin
     ? `
-  const fastify = app.getHttpAdapter().getInstance();
   await fastify.register(fastifyView, {
     engine: { handlebars },
     root: join(__dirname, 'views'),
@@ -423,11 +431,22 @@ import {
   NestFastifyApplication,
 } from '@nestjs/platform-fastify';
 import middie from '@fastify/middie';
-import fastifyStatic from '@fastify/static';${adminImports}
+import fastifyStatic from '@fastify/static';
+import type { FastifyInstance } from 'fastify';${
+    admin
+      ? `\nimport fastifyView from '@fastify/view';\nimport handlebars from 'handlebars';`
+      : ''
+  }
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import type { NextFunction, Request, Response, RequestHandler } from 'express';
 import { AppModule } from './app.module';
 import { setSpaIndexHtml } from './nuxt-spa-fallback.controller';
+
+async function ensureMiddie(fastify: FastifyInstance): Promise<void> {
+  if (!fastify.hasDecorator('use')) {
+    await fastify.register(middie);
+  }
+}
 
 function resolveWebOutputRoot(): string {
   const candidates = [
@@ -452,7 +471,7 @@ async function mountSpaProduction(app: NestFastifyApplication): Promise<void> {
   const indexHtml = readFileSync(join(publicPath, 'index.html'), 'utf8');
 
   const fastify = app.getHttpAdapter().getInstance();
-  await fastify.register(middie);
+  await ensureMiddie(fastify);
   await fastify.register(fastifyStatic, {
     root: publicPath,
     wildcard: false,
@@ -468,6 +487,9 @@ async function bootstrap() {
     AppModule.register(),
     new FastifyAdapter(),
   );
+  app.enableShutdownHooks();
+
+  const fastify = app.getHttpAdapter().getInstance();
 ${adminRegister}
 
   let devProxy:
@@ -478,13 +500,12 @@ ${adminRegister}
 
   if (!isProduction && enableNuxtProxy) {
     devProxy = createProxyMiddleware({
-      target: process.env.NUXT_DEV_URL ?? 'http://127.0.0.1:3001',
+      target: process.env.NUXT_DEV_URL ?? 'http://127.0.0.1:${NUXT_DEV_DEFAULT_PORT}',
       changeOrigin: true,
       ws: true,
     }) as typeof devProxy;
 
-    const fastify = app.getHttpAdapter().getInstance();
-    await fastify.register(middie);
+    await ensureMiddie(fastify);
     fastify.use((req: Request, res: Response, next: NextFunction) => {
       const url = req.originalUrl ?? req.url ?? '';
       if (url.startsWith('/api') || url.startsWith('/admin')) {
@@ -501,7 +522,7 @@ ${adminRegister}
     await mountSpaProduction(app);
   }
 
-  const port = Number(process.env.PORT ?? 3000);
+  const port = Number(process.env.PORT ?? ${NEST_DEFAULT_PORT});
   await app.listen(port, '0.0.0.0');
 
   if (devProxy) {

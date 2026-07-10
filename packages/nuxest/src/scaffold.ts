@@ -7,6 +7,14 @@ import { generateAppModule } from './generators/app-module.js';
 import { generateEnvExample } from './generators/env.js';
 import { generateMain } from './generators/main.js';
 import { generateIndexVue, generateNuxtConfig } from './generators/nuxt-config.js';
+import {
+  generateDockerCompose,
+  needsDockerServices,
+  dockerInfraServiceNames,
+} from './generators/docker-compose.js';
+import { NEST_DEFAULT_PORT } from './constants.js';
+import { generateTypeormDatabaseModule } from './generators/typeorm-database-module.js';
+import { generatePnpmWorkspace } from './generators/pnpm-workspace.js';
 import { renderFile, toContext } from './render.js';
 import type { ScaffoldOptions, TemplateContext } from './types.js';
 
@@ -36,12 +44,11 @@ function applyFeatures(options: ScaffoldOptions, context: TemplateContext): void
   const features = join(TEMPLATES_ROOT, 'features');
 
   if (options.orm !== 'none' && options.database) {
-    copyDir(join(features, 'orm', options.orm, '_shared'), options.targetDir, context);
-    copyDir(
-      join(features, 'orm', options.orm, options.database),
-      options.targetDir,
-      context,
-    );
+    const ormDir = join(features, 'orm', options.orm);
+    copyDir(join(ormDir, '_shared'), options.targetDir, context);
+    if (options.orm !== 'mongoose') {
+      copyDir(join(ormDir, options.database), options.targetDir, context);
+    }
   }
 
   if (options.scheduling) {
@@ -80,12 +87,34 @@ function writeGeneratedFiles(
       generateIndexVue(options),
     ],
     [join(targetDir, '.env.example'), generateEnvExample(options)],
+    [join(targetDir, 'pnpm-workspace.yaml'), generatePnpmWorkspace(options)],
   ];
+
+  if (needsDockerServices(options)) {
+    writes.push([
+      join(targetDir, 'docker-compose.yml'),
+      generateDockerCompose(options),
+    ]);
+  }
+
+  if (options.orm === 'typeorm' && options.database) {
+    writes.push([
+      join(targetDir, 'apps/api/src/database/database.module.ts'),
+      generateTypeormDatabaseModule(options),
+    ]);
+  }
 
   for (const [filePath, content] of writes) {
     mkdirSync(dirname(filePath), { recursive: true });
     writeFileSync(filePath, content);
   }
+}
+
+function isScaffoldTemplate(relativePath: string): boolean {
+  if (relativePath.includes('/views/') || relativePath.startsWith('views/')) {
+    return false;
+  }
+  return relativePath.endsWith('.hbs');
 }
 
 function copyDir(
@@ -97,14 +126,15 @@ function copyDir(
 
   walk(sourceRoot, (sourcePath) => {
     const rel = relative(sourceRoot, sourcePath);
+    const renderTemplate = isScaffoldTemplate(rel);
     const destPath = join(
       targetRoot,
-      rel.endsWith('.hbs') ? rel.slice(0, -4) : rel,
+      renderTemplate && rel.endsWith('.hbs') ? rel.slice(0, -4) : rel,
     );
 
     mkdirSync(dirname(destPath), { recursive: true });
 
-    if (sourcePath.endsWith('.hbs')) {
+    if (renderTemplate) {
       writeFileSync(destPath, renderFile(sourcePath, context));
     } else {
       cpSync(sourcePath, destPath);
@@ -129,11 +159,18 @@ function printNextSteps(options: ScaffoldOptions): void {
   console.log(`Done! Project scaffolded at ${options.targetDir}`);
   console.log('');
   console.log(`  cd ${options.projectName}`);
+  console.log('  docker compose up --build   # full dev stack (app + services)');
+  console.log('');
+  console.log('  # Or run the app locally:');
   console.log('  cp .env.example .env');
+  const infra = dockerInfraServiceNames(options);
+  if (infra.length > 0) {
+    console.log(`  docker compose up -d ${infra.join(' ')}`);
+  }
   console.log('  pnpm dev');
   console.log('');
-  console.log('Open http://localhost:3000');
+  console.log(`Open http://localhost:${NEST_DEFAULT_PORT}`);
   if (options.admin) {
-    console.log('Admin: http://localhost:3000/admin');
+    console.log(`Admin: http://localhost:${NEST_DEFAULT_PORT}/admin`);
   }
 }

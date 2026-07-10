@@ -1,13 +1,20 @@
 import type { ScaffoldOptions } from '../types.js';
+import {
+  NEST_DEFAULT_PORT,
+  NUXT_DEV_DEFAULT_PORT,
+  nestApiBaseUrl,
+} from '../constants.js';
 
 export function generateNuxtConfig(options: ScaffoldOptions): string {
   const ssr = options.nuxtMode === 'ssr';
+  const apiBase = nestApiBaseUrl();
 
   return `// https://nuxt.com/docs/api/configuration/nuxt-config
 const nestOrigin = (
-  process.env.API_BASE_SERVER ?? 'http://127.0.0.1:3000/api'
+  process.env.API_BASE_SERVER ?? '${apiBase}'
 ).replace(/\\/api\\/?$/, '');
-const nuxtDevPort = Number(process.env.NUXT_DEV_PORT ?? 3001);
+const nuxtDevPort = Number(process.env.NUXT_DEV_PORT ?? ${NUXT_DEV_DEFAULT_PORT});
+const nuxtDevHost = process.env.NUXT_DEV_HOST ?? '127.0.0.1';
 const isDev = process.env.NODE_ENV !== 'production';
 
 export default defineNuxtConfig({
@@ -43,14 +50,15 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     apiBaseServer:
-      process.env.API_BASE_SERVER ?? 'http://127.0.0.1:3000/api',
+      process.env.API_BASE_SERVER ?? '${apiBase}',
     public: {
       apiBase: '/api',
     },
   },
   devServer: {
-    port: 3001,
-    host: '127.0.0.1',
+    port: nuxtDevPort,
+    host: nuxtDevHost,
+    strictPort: true,
   },
 });
 `;

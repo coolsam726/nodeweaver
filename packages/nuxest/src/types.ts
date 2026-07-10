@@ -1,4 +1,4 @@
-export type Orm = 'typeorm' | 'prisma' | 'drizzle' | 'none';
+export type Orm = 'typeorm' | 'prisma' | 'drizzle' | 'mongoose' | 'none';
 export type Database = 'postgresql' | 'mysql' | 'sqlite' | 'mongodb';
 export type HttpAdapter = 'fastify' | 'express';
 export type NuxtMode = 'ssr' | 'spa';
@@ -22,4 +22,9 @@ export interface TemplateContext extends ScaffoldOptions {
   isFastify: boolean;
   isExpress: boolean;
   hasDatabase: boolean;
+  dockerServices: boolean;
+  infraServices: string;
+  hasInfraServices: boolean;
+  nestPort: number;
+  nuxtDevPort: number;
 }

@@ -8,6 +8,8 @@ function dbModuleImport(options: ScaffoldOptions): string | null {
       return "import { PrismaModule } from './database/prisma.module';";
     case 'drizzle':
       return "import { DrizzleModule } from './database/drizzle.module';";
+    case 'mongoose':
+      return "import { DatabaseModule } from './database/database.module';";
     default:
       return null;
   }
@@ -21,6 +23,8 @@ function dbModuleName(options: ScaffoldOptions): string | null {
       return 'PrismaModule';
     case 'drizzle':
       return 'DrizzleModule';
+    case 'mongoose':
+      return 'DatabaseModule';
     default:
       return null;
   }
@@ -57,7 +61,10 @@ export function generateAppModule(options: ScaffoldOptions): string {
   if (dbImport) imports.push(dbImport);
 
   const moduleImports: string[] = [
-    'ConfigModule.forRoot({ isGlobal: true })',
+    `ConfigModule.forRoot({
+          isGlobal: true,
+          envFilePath: ['../../.env', '../../.env.local', '.env', '.env.local'],
+        })`,
   ];
 
   if (options.scheduling) {

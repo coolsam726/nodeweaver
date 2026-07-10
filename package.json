@@ -9,8 +9,8 @@
   "scripts": {
     "build": "pnpm --filter nuxest build && pnpm --filter create-nuxest build",
     "dev": "pnpm --filter nuxest dev",
-    "create": "pnpm --filter create-nuxest dev",
-    "create:nuxest": "pnpm --filter nuxest dev",
+    "create": "node packages/create-nuxest/dist/index.js",
+    "create:nuxest": "node packages/nuxest/dist/cli.js",
     "dev:stack": "concurrently -n api,web -c blue,green \"pnpm --filter api dev\" \"pnpm --filter web dev\"",
     "test:scaffold": "node packages/nuxest/dist/test-scaffold.js",
     "test": "pnpm build && node packages/nuxest/dist/test-scaffold.js nuxest-smoke-test"

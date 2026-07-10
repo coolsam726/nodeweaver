@@ -2,27 +2,47 @@
 
 NestJS + Nuxt 4 monorepo scaffolded with [nuxest](https://github.com/your-org/nuxest).
 
-## Quick start
+## Quick start (Docker — recommended)
+
+Runs the app and all selected services (database, Redis, etc.) in containers:
 
 ```bash
-cp .env.example .env   # configure DATABASE_URL / REDIS if needed
-pnpm dev
+docker compose up --build
 ```
 
-Open **http://localhost:3000**
+Open **http://localhost:{{nestPort}}**
+
+Use `pnpm docker:down` to stop containers.
+
+The `app` container runs as your host user (UID/GID baked in at scaffold time) so `node_modules` is not owned by root. If you have root-owned volumes from an earlier run, reset with `docker compose down -v`.
+
+## Quick start (local app)
+
+Run the app on your host and use Docker only for infrastructure:
+
+```bash
+cp .env.example .env
+{{#if hasInfraServices}}docker compose up -d {{infraServices}}
+{{/if}}pnpm dev
+```
+
+`.env.example` uses `localhost` URLs for this workflow. The `app` service in `docker-compose.yml` overrides them with in-network hostnames.
 
 {{#if admin}}
-Admin panel: **http://localhost:3000/admin**
+Admin panel: **http://localhost:{{nestPort}}/admin**
 {{/if}}
 
 ## Scripts
 
 | Command | Description |
 |---------|-------------|
-| `pnpm dev` | Nest on `:3000` + Nuxt on `:3001` |
+| `pnpm dev` | Nest on `:{{nestPort}}` + Nuxt on `:{{nuxtDevPort}}` (on host) |
 | `pnpm build` | Production build |
 | `pnpm start:prod` | Run production server |
 | `pnpm test` | API tests |
+| `pnpm docker:up` | Start full dev stack in background |
+| `pnpm docker:dev` | Start full dev stack (foreground, with logs) |
+| `pnpm docker:down` | Stop containers |
 
 ## Structure
 

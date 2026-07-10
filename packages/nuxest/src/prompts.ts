@@ -3,8 +3,8 @@ import { existsSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
   DATABASE_LABELS,
-  databasesForOrm,
   ORM_LABELS,
+  ormsForDatabase,
 } from './database.js';
 import type {
   Database,
@@ -17,6 +17,8 @@ import type {
 function isValidProjectName(name: string): boolean {
   return /^[a-z][a-z0-9-]*$/.test(name);
 }
+
+type DatabaseChoice = Database | 'none';
 
 export async function collectOptions(
   projectNameArg?: string,
@@ -41,24 +43,32 @@ export async function collectOptions(
 
   assertTargetDirAvailable(targetDir, Boolean(targetDirArg));
 
-  const orm = await select<Orm>({
-    message: 'ORM',
-    choices: (Object.keys(ORM_LABELS) as Orm[]).map((value) => ({
-      value,
-      name: ORM_LABELS[value],
-    })),
+  const databaseChoice = await select<DatabaseChoice>({
+    message: 'Database',
+    choices: [
+      { value: 'postgresql', name: DATABASE_LABELS.postgresql },
+      { value: 'mysql', name: DATABASE_LABELS.mysql },
+      { value: 'sqlite', name: DATABASE_LABELS.sqlite },
+      { value: 'mongodb', name: DATABASE_LABELS.mongodb },
+      { value: 'none', name: 'None (skip database setup)' },
+    ],
+    default: 'postgresql',
   });
 
+  let orm: Orm = 'none';
   let database: Database | null = null;
-  if (orm !== 'none') {
-    const allowed = databasesForOrm(orm);
-    database = await select<Database>({
-      message: 'Database',
-      choices: allowed.map((value) => ({
+
+  if (databaseChoice !== 'none') {
+    database = databaseChoice;
+    const allowedOrms = ormsForDatabase(database);
+
+    orm = await select<Exclude<Orm, 'none'>>({
+      message: 'ORM / ODM',
+      choices: allowedOrms.map((value) => ({
         value,
-        name: DATABASE_LABELS[value],
+        name: ORM_LABELS[value],
       })),
-      default: allowed.includes('postgresql') ? 'postgresql' : allowed[0],
+      default: allowedOrms[0],
     });
   }
 
@@ -103,8 +113,8 @@ export async function collectOptions(
   console.log(`Scaffolding ${projectName} → ${targetDir}`);
   console.log(
     [
-      `  ORM: ${ORM_LABELS[orm]}`,
-      database ? `  Database: ${DATABASE_LABELS[database]}` : null,
+      database ? `  Database: ${DATABASE_LABELS[database]}` : '  Database: none',
+      orm !== 'none' ? `  ORM: ${ORM_LABELS[orm]}` : null,
       `  Scheduling: ${scheduling ? 'yes' : 'no'}`,
       `  Queues: ${queues ? 'yes' : 'no'}`,
       `  HTTP: ${httpAdapter}`,
