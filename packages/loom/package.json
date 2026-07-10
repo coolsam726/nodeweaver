@@ -1,7 +1,16 @@
 {
-  "name": "@weaver/velm",
+  "name": "@nestweaver/loom",
   "version": "0.1.0",
-  "description": "Declarative admin panel for NestJS — Handlebars, Tailwind, Alpine.js, ORM-agnostic",
+  "description": "Loom — declarative admin panel for NestJS. Resource CRUD UI with Handlebars, Tailwind CSS, and Alpine.js.",
+  "keywords": [
+    "nestweaver",
+    "nestjs",
+    "admin",
+    "admin-panel",
+    "crud",
+    "handlebars",
+    "tailwindcss"
+  ],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {

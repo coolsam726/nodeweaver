@@ -8,7 +8,7 @@ COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
 COPY apps/api/package.json ./apps/api/
 COPY apps/web/package.json ./apps/web/
 COPY packages/shared/package.json ./packages/shared/
-COPY packages/velm/package.json ./packages/velm/
+COPY packages/loom/package.json ./packages/loom/
 RUN pnpm install --frozen-lockfile
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
@@ -22,7 +22,7 @@ COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps/api/package.json ./apps/api/
 COPY apps/web/package.json ./apps/web/
 COPY packages/shared/package.json ./packages/shared/
-COPY packages/velm/package.json ./packages/velm/
+COPY packages/loom/package.json ./packages/loom/
 RUN pnpm install --frozen-lockfile
 
 FROM base AS build
@@ -42,6 +42,6 @@ COPY --from=build /app/apps/api/package.json ./apps/api/package.json
 COPY --from=build /app/apps/web/.output ./apps/web/.output
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/apps/api/node_modules ./apps/api/node_modules
-COPY --from=build /app/packages/velm ./packages/velm
+COPY --from=build /app/packages/loom ./packages/loom
 EXPOSE 4000
 CMD ["node", "apps/api/dist/main.js"]

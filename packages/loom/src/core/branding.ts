@@ -27,35 +27,54 @@ const ENV_KEYS = {
   accentColor: 'VELM_BRAND_ACCENT_COLOR',
 } as const;
 
+const LOOM_ENV_KEYS = {
+  brandName: 'LOOM_BRAND_NAME',
+  logoUrl: 'LOOM_BRAND_LOGO_URL',
+  logoDarkUrl: 'LOOM_BRAND_LOGO_DARK_URL',
+  copyrightText: 'LOOM_BRAND_COPYRIGHT',
+  fontFamily: 'LOOM_BRAND_FONT_FAMILY',
+  fontUrl: 'LOOM_BRAND_FONT_URL',
+  primaryColor: 'LOOM_BRAND_PRIMARY_COLOR',
+  accentColor: 'LOOM_BRAND_ACCENT_COLOR',
+} as const;
+
+function readBrandingEnv(
+  env: Record<string, string | undefined>,
+  loomKey: string,
+  velmKey: string,
+): string | undefined {
+  const value = env[loomKey] ?? env[velmKey];
+  return value?.trim() || undefined;
+}
+
 export function brandingFromEnv(
   env: Record<string, string | undefined> = process.env,
 ): Partial<VelmBranding> {
   const branding: Partial<VelmBranding> = {};
 
-  if (env[ENV_KEYS.brandName]?.trim()) {
-    branding.brandName = env[ENV_KEYS.brandName]!.trim();
-  }
-  if (env[ENV_KEYS.logoUrl]?.trim()) {
-    branding.logoUrl = env[ENV_KEYS.logoUrl]!.trim();
-  }
-  if (env[ENV_KEYS.logoDarkUrl]?.trim()) {
-    branding.logoDarkUrl = env[ENV_KEYS.logoDarkUrl]!.trim();
-  }
-  if (env[ENV_KEYS.copyrightText]?.trim()) {
-    branding.copyrightText = env[ENV_KEYS.copyrightText]!.trim();
-  }
-  if (env[ENV_KEYS.fontFamily]?.trim()) {
-    branding.fontFamily = env[ENV_KEYS.fontFamily]!.trim();
-  }
-  if (env[ENV_KEYS.fontUrl]?.trim()) {
-    branding.fontUrl = env[ENV_KEYS.fontUrl]!.trim();
-  }
-  if (env[ENV_KEYS.primaryColor]?.trim()) {
-    branding.primaryColor = normalizeHexColor(env[ENV_KEYS.primaryColor]!.trim());
-  }
-  if (env[ENV_KEYS.accentColor]?.trim()) {
-    branding.accentColor = normalizeHexColor(env[ENV_KEYS.accentColor]!.trim());
-  }
+  const brandName = readBrandingEnv(env, LOOM_ENV_KEYS.brandName, ENV_KEYS.brandName);
+  if (brandName) branding.brandName = brandName;
+
+  const logoUrl = readBrandingEnv(env, LOOM_ENV_KEYS.logoUrl, ENV_KEYS.logoUrl);
+  if (logoUrl) branding.logoUrl = logoUrl;
+
+  const logoDarkUrl = readBrandingEnv(env, LOOM_ENV_KEYS.logoDarkUrl, ENV_KEYS.logoDarkUrl);
+  if (logoDarkUrl) branding.logoDarkUrl = logoDarkUrl;
+
+  const copyrightText = readBrandingEnv(env, LOOM_ENV_KEYS.copyrightText, ENV_KEYS.copyrightText);
+  if (copyrightText) branding.copyrightText = copyrightText;
+
+  const fontFamily = readBrandingEnv(env, LOOM_ENV_KEYS.fontFamily, ENV_KEYS.fontFamily);
+  if (fontFamily) branding.fontFamily = fontFamily;
+
+  const fontUrl = readBrandingEnv(env, LOOM_ENV_KEYS.fontUrl, ENV_KEYS.fontUrl);
+  if (fontUrl) branding.fontUrl = fontUrl;
+
+  const primaryColor = readBrandingEnv(env, LOOM_ENV_KEYS.primaryColor, ENV_KEYS.primaryColor);
+  if (primaryColor) branding.primaryColor = normalizeHexColor(primaryColor);
+
+  const accentColor = readBrandingEnv(env, LOOM_ENV_KEYS.accentColor, ENV_KEYS.accentColor);
+  if (accentColor) branding.accentColor = normalizeHexColor(accentColor);
 
   return branding;
 }
@@ -92,7 +111,7 @@ export function buildBrandingCss(branding: VelmBranding): string {
   const accent = normalizeHexColor(branding.accentColor) ?? DEFAULT_VELM_BRANDING.accentColor;
   const fontFamily = branding.fontFamily;
 
-  return `/* Velm branding — generated at runtime */
+  return `/* Loom admin branding — generated at runtime */
 :root {
   --velm-font-family: ${fontFamily};
   --color-primary-500: ${primary};
@@ -164,4 +183,5 @@ export function normalizeHexColor(value: string): string | undefined {
   return `#${hex.toLowerCase()}`;
 }
 
-export { ENV_KEYS as VELM_BRANDING_ENV_KEYS };
+export { ENV_KEYS as VELM_BRANDING_ENV_KEYS, LOOM_ENV_KEYS as LOOM_BRANDING_ENV_KEYS };
+export type LoomBranding = VelmBranding;

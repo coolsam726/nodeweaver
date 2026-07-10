@@ -20,12 +20,12 @@ services:
       DATABASE_URL: "mongodb://mongodb:27017/example"
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      VELM_BRAND_NAME: Example Admin
-      VELM_BRAND_COPYRIGHT: "© 2026 Example Inc. All rights reserved."
-      VELM_BRAND_FONT_FAMILY: "Inter, ui-sans-serif, system-ui, sans-serif"
-      VELM_BRAND_FONT_URL: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
-      VELM_BRAND_PRIMARY_COLOR: "#f1511b"
-      VELM_BRAND_ACCENT_COLOR: "#286291"
+      LOOM_BRAND_NAME: Example Admin
+      LOOM_BRAND_COPYRIGHT: "© 2026 Example Inc. All rights reserved."
+      LOOM_BRAND_FONT_FAMILY: "Inter, ui-sans-serif, system-ui, sans-serif"
+      LOOM_BRAND_FONT_URL: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      LOOM_BRAND_PRIMARY_COLOR: "#f1511b"
+      LOOM_BRAND_ACCENT_COLOR: "#286291"
     depends_on:
       mongodb:
         condition: service_healthy

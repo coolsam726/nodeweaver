@@ -18,7 +18,7 @@ export function generateCompanyResource(options: ScaffoldOptions): string | null
   const modelImport = modelImportForOrm(options, 'Company');
   const modelRef = modelRefForOrm(options, 'Company');
 
-  return `${modelImport}import { CompanyResourceBase } from '@weaver/velm/base';
+  return `${modelImport}import { CompanyResourceBase } from '@nestweaver/loom/base';
 
 export class CompanyResource extends CompanyResourceBase {
   static override model = ${modelRef};
@@ -34,7 +34,7 @@ export function generateUserResource(options: ScaffoldOptions): string | null {
   const modelImport = modelImportForOrm(options, 'User');
   const modelRef = modelRefForOrm(options, 'User');
 
-  return `${modelImport}import { UserResourceBase } from '@weaver/velm/base';
+  return `${modelImport}import { UserResourceBase } from '@nestweaver/loom/base';
 
 export class UserResource extends UserResourceBase {
   static override model = ${modelRef};
@@ -118,21 +118,21 @@ export class DatabaseModule {}
 `;
 }
 
-export function generateVelmAdminModule(options: ScaffoldOptions): string {
+export function generateLoomAdminModule(options: ScaffoldOptions): string {
   if (options.orm === 'none') {
     return `import { Module } from '@nestjs/common';
-import { VelmModule } from '@weaver/velm';
+import { LoomModule } from '@nestweaver/loom';
 
 @Module({
   imports: [
-    VelmModule.forRoot({
+    LoomModule.forRoot({
       basePath: '/admin',
       title: '${adminTitle(options)}',
       resources: [],
     }),
   ],
 })
-export class VelmAdminModule {}
+export class LoomAdminModule {}
 `;
   }
 
@@ -143,19 +143,19 @@ import { UserResource } from './user.resource';`;
 
   return `${extraImports}
 import { Module } from '@nestjs/common';
-import { VelmModule } from '@weaver/velm';
+import { LoomModule } from '@nestweaver/loom';
 ${resourcesImport}
 
 @Module({
   imports: [
-    VelmModule.forRootAsync({
+    LoomModule.forRootAsync({
       ${velmAsyncImports(options)}
       inject: [${velmInjectTokens(options)}],
       useFactory: ${factoryBody},
     }),
   ],
 })
-export class VelmAdminModule {}
+export class LoomAdminModule {}
 `;
 }
 
@@ -275,13 +275,13 @@ function velmFactoryBody(options: ScaffoldOptions): string {
   }
 }
 
-export function generateVelmAdminFiles(
+export function generateLoomAdminFiles(
   options: ScaffoldOptions,
 ): Array<[string, string]> {
   const adminDir = 'apps/api/src/admin';
   const dbDir = 'apps/api/src/database';
   const files: Array<[string, string]> = [
-    [`${adminDir}/velm-admin.module.ts`, generateVelmAdminModule(options)],
+    [`${adminDir}/loom-admin.module.ts`, generateLoomAdminModule(options)],
   ];
 
   const companyResource = generateCompanyResource(options);

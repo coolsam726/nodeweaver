@@ -27,4 +27,4 @@ if (existsSync(uiSource)) {
   cpSync(uiSource, join(cssTargetDir, 'velm-ui.js'));
 }
 
-console.log('Velm assets copied to dist/');
+console.log('Loom assets copied to dist/');

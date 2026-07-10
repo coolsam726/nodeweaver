@@ -1,13 +1,13 @@
 import { getConnectionToken } from '@nestjs/mongoose';
 import type { Connection } from 'mongoose';
 import { Module } from '@nestjs/common';
-import { VelmModule, brandingFromEnv } from '@weaver/velm';
+import { LoomModule, brandingFromEnv } from '@nestweaver/loom';
 import { CompanyResource } from './company.resource';
 import { UserResource } from './user.resource';
 
 @Module({
   imports: [
-    VelmModule.forRootAsync({
+    LoomModule.forRootAsync({
       imports: [],
       inject: [getConnectionToken()],
       useFactory: (connection: Connection) => ({
@@ -26,4 +26,4 @@ import { UserResource } from './user.resource';
     }),
   ],
 })
-export class VelmAdminModule {}
+export class LoomAdminModule {}

@@ -119,7 +119,7 @@ export async function collectOptions(
   });
 
   const admin = await confirm({
-    message: 'Add declarative admin panel (@weaver/velm at /admin)?',
+    message: 'Add Loom admin panel (@nestweaver/loom at /admin)?',
     default: false,
   });
 

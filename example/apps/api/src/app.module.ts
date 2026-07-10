@@ -4,7 +4,7 @@ import { HealthController } from './health.controller';
 import { ScheduleModule } from '@nestjs/schedule';
 import { TasksModule } from './tasks/tasks.module';
 import { QueuesModule } from './queues/queues.module';
-import { VelmAdminModule } from './admin/velm-admin.module';
+import { LoomAdminModule } from './admin/loom-admin.module';
 import { SsrFallbackController } from './ssr-fallback.controller';
 import { DatabaseModule } from './database/database.module';
 
@@ -29,7 +29,7 @@ export class AppModule {
         ScheduleModule.forRoot(),
         TasksModule,
         QueuesModule,
-        VelmAdminModule,
+        LoomAdminModule,
         DatabaseModule,
       ],
       controllers,

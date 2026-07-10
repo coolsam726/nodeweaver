@@ -1,5 +1,5 @@
 {
-  "name": "@weaver/velm",
+  "name": "@nestweaver/loom",
   "version": "0.1.0",
   "description": "Declarative admin panel for NestJS — Handlebars, Tailwind, Alpine.js, ORM-agnostic",
   "main": "./dist/index.js",
