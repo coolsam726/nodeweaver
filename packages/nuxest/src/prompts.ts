@@ -6,8 +6,10 @@ import {
   ORM_LABELS,
   ormsForDatabase,
 } from './database.js';
+import { FRONTEND_LABELS } from './frontend.js';
 import type {
   Database,
+  Frontend,
   HttpAdapter,
   NuxtMode,
   Orm,
@@ -42,6 +44,30 @@ export async function collectOptions(
   const targetDir = targetDirArg ?? resolve(process.cwd(), projectName);
 
   assertTargetDirAvailable(targetDir, Boolean(targetDirArg));
+
+  const frontend = await select<Frontend>({
+    message: 'Frontend framework',
+    choices: [
+      { value: 'nuxt', name: FRONTEND_LABELS.nuxt },
+      { value: 'vite-react', name: FRONTEND_LABELS['vite-react'] },
+      { value: 'vite-vue', name: FRONTEND_LABELS['vite-vue'] },
+      { value: 'vite-svelte', name: FRONTEND_LABELS['vite-svelte'] },
+    ],
+    default: 'nuxt',
+  });
+
+  let nuxtMode: NuxtMode = 'ssr';
+
+  if (frontend === 'nuxt') {
+    nuxtMode = await select<NuxtMode>({
+      message: 'Nuxt rendering mode',
+      choices: [
+        { value: 'ssr', name: 'SSR (server-side rendering)' },
+        { value: 'spa', name: 'SPA (client-only, static export style)' },
+      ],
+      default: 'ssr',
+    });
+  }
 
   const databaseChoice = await select<DatabaseChoice>({
     message: 'Database',
@@ -100,26 +126,22 @@ export async function collectOptions(
     console.log('  Admin panel uses Handlebars via @fastify/view.');
   }
 
-  const nuxtMode = await select<NuxtMode>({
-    message: 'Nuxt rendering mode',
-    choices: [
-      { value: 'ssr', name: 'SSR (server-side rendering)' },
-      { value: 'spa', name: 'SPA (client-only, static export style)' },
-    ],
-    default: 'ssr',
-  });
+  const frontendSummary =
+    frontend === 'nuxt'
+      ? `${FRONTEND_LABELS.nuxt} (${nuxtMode.toUpperCase()})`
+      : `${FRONTEND_LABELS[frontend]} (SPA)`;
 
   console.log('');
   console.log(`Scaffolding ${projectName} → ${targetDir}`);
   console.log(
     [
+      `  Frontend: ${frontendSummary}`,
       database ? `  Database: ${DATABASE_LABELS[database]}` : '  Database: none',
       orm !== 'none' ? `  ORM: ${ORM_LABELS[orm]}` : null,
       `  Scheduling: ${scheduling ? 'yes' : 'no'}`,
       `  Queues: ${queues ? 'yes' : 'no'}`,
       `  HTTP: ${httpAdapter}`,
       `  Admin: ${admin ? 'yes' : 'no'}`,
-      `  Nuxt: ${nuxtMode.toUpperCase()}`,
     ]
       .filter(Boolean)
       .join('\n'),
@@ -129,6 +151,7 @@ export async function collectOptions(
   return {
     projectName,
     targetDir,
+    frontend,
     orm,
     database,
     scheduling,

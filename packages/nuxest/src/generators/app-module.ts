@@ -1,4 +1,5 @@
 import type { ScaffoldOptions } from '../types.js';
+import { isNuxtSsr } from '../frontend.js';
 
 function dbModuleImport(options: ScaffoldOptions): string | null {
   switch (options.orm) {
@@ -50,10 +51,9 @@ export function generateAppModule(options: ScaffoldOptions): string {
     imports.push("import { AdminModule } from './admin/admin.module';");
   }
 
-  const fallbackImport =
-    options.nuxtMode === 'ssr'
-      ? "import { NuxtFallbackController } from './nuxt-fallback.controller';"
-      : "import { NuxtSpaFallbackController } from './nuxt-spa-fallback.controller';";
+  const fallbackImport = isNuxtSsr(options)
+    ? "import { NuxtFallbackController } from './nuxt-fallback.controller';"
+    : "import { SpaFallbackController } from './spa-fallback.controller';";
 
   imports.push(fallbackImport);
 
@@ -78,10 +78,9 @@ export function generateAppModule(options: ScaffoldOptions): string {
   const dbMod = dbModuleName(options);
   if (dbMod) moduleImports.push(dbMod);
 
-  const fallbackController =
-    options.nuxtMode === 'ssr'
-      ? 'NuxtFallbackController'
-      : 'NuxtSpaFallbackController';
+  const fallbackController = isNuxtSsr(options)
+    ? 'NuxtFallbackController'
+    : 'SpaFallbackController';
 
   return `${imports.join('\n')}
 

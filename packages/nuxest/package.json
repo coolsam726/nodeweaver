@@ -1,7 +1,7 @@
 {
   "name": "nuxest",
   "version": "0.1.0",
-  "description": "Scaffold NestJS + Nuxt monorepos with batteries included",
+  "description": "Scaffold NestJS + Nuxt/Vite monorepos with batteries included",
   "type": "module",
   "bin": {
     "nuxest": "./dist/cli.js"

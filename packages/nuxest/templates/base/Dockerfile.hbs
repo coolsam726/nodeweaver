@@ -3,8 +3,8 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 
 FROM base AS dev
-RUN apk add --no-cache python3 make g++ curl
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+RUN apk add --no-cache python3 make g++ curl su-exec
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
 COPY apps/api/package.json ./apps/api/
 COPY apps/web/package.json ./apps/web/
 COPY packages/shared/package.json ./packages/shared/
@@ -12,8 +12,11 @@ COPY packages/shared/package.json ./packages/shared/
 COPY apps/api/prisma ./apps/api/prisma/
 {{/if}}
 RUN pnpm install --frozen-lockfile
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 ENV CI=true
-EXPOSE {{nestPort}} {{nuxtDevPort}}
+EXPOSE {{nestPort}} {{webDevPort}}
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["pnpm", "dev"]
 
 FROM base AS deps
@@ -40,7 +43,11 @@ WORKDIR /app
 COPY --from=build /app/package.json ./
 COPY --from=build /app/apps/api/dist ./apps/api/dist
 COPY --from=build /app/apps/api/package.json ./apps/api/package.json
+{{#if isNuxt}}
 COPY --from=build /app/apps/web/.output ./apps/web/.output
+{{else}}
+COPY --from=build /app/apps/web/dist ./apps/web/dist
+{{/if}}
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/apps/api/node_modules ./apps/api/node_modules
 EXPOSE {{nestPort}}

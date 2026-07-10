@@ -8,7 +8,7 @@ export function setSpaIndexHtml(html: string): void {
 }
 
 @Controller()
-export class NuxtSpaFallbackController {
+export class SpaFallbackController {
   @All('*')
   handle(
     @Req() req: Request,
