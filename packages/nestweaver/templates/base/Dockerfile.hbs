@@ -9,7 +9,7 @@ COPY apps/api/package.json ./apps/api/
 COPY apps/web/package.json ./apps/web/
 COPY packages/shared/package.json ./packages/shared/
 {{#if admin}}
-COPY packages/velm/package.json ./packages/velm/
+COPY packages/loom/package.json ./packages/loom/
 {{/if}}
 {{#if (eq orm "prisma")}}
 COPY apps/api/prisma ./apps/api/prisma/
@@ -28,7 +28,7 @@ COPY apps/api/package.json ./apps/api/
 COPY apps/web/package.json ./apps/web/
 COPY packages/shared/package.json ./packages/shared/
 {{#if admin}}
-COPY packages/velm/package.json ./packages/velm/
+COPY packages/loom/package.json ./packages/loom/
 {{/if}}
 {{#if (eq orm "prisma")}}
 COPY apps/api/prisma ./apps/api/prisma/
@@ -57,7 +57,7 @@ COPY --from=build /app/apps/web/dist ./apps/web/dist
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/apps/api/node_modules ./apps/api/node_modules
 {{#if admin}}
-COPY --from=build /app/packages/velm ./packages/velm
+COPY --from=build /app/packages/loom ./packages/loom
 {{/if}}
 EXPOSE {{nestPort}}
 CMD ["node", "apps/api/dist/main.js"]

@@ -1,0 +1,17 @@
+<nav class="flex items-center gap-2 text-sm text-loom-muted">
+  <a href="{{basePath}}" class="hover:text-loom-primary">Dashboard</a>
+  <span>/</span>
+  <a href="{{basePath}}/{{resource.slug}}" class="hover:text-loom-primary">{{resource.label}}</a>
+  {{#if recordTitle}}
+    <span>/</span>
+    <span class="font-medium text-loom-primary-800">{{recordTitle}}</span>
+  {{/if}}
+  {{#if (eq mode 'create')}}
+    <span>/</span>
+    <span class="font-medium text-loom-primary-800">Create</span>
+  {{/if}}
+  {{#if (eq mode 'edit')}}
+    <span>/</span>
+    <span class="font-medium text-loom-primary-800">Edit</span>
+  {{/if}}
+</nav>

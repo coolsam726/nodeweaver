@@ -1,0 +1,84 @@
+{
+  "name": "@nestweaver/loom",
+  "version": "0.1.0",
+  "description": "Loom — declarative admin panel for NestJS. Resource CRUD UI with Handlebars, Tailwind CSS, and Alpine.js.",
+  "keywords": [
+    "nestweaver",
+    "nestjs",
+    "admin",
+    "admin-panel",
+    "crud",
+    "handlebars",
+    "tailwindcss"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./nest": {
+      "types": "./dist/nest/index.d.ts",
+      "require": "./dist/nest/index.js",
+      "import": "./dist/nest/index.js",
+      "default": "./dist/nest/index.js"
+    },
+    "./base": {
+      "types": "./dist/base/index.d.ts",
+      "require": "./dist/base/index.js",
+      "import": "./dist/base/index.js",
+      "default": "./dist/base/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "views",
+    "assets"
+  ],
+  "scripts": {
+    "build": "pnpm build:css && tsc && node scripts/copy-assets.mjs",
+    "build:css": "rm -f ./assets/admin.css && tailwindcss -i ./assets/input.css -o ./assets/admin.css --minify",
+    "dev:css": "tailwindcss -i ./assets/input.css -o ./assets/admin.css --watch",
+    "prepublishOnly": "pnpm build"
+  },
+  "peerDependencies": {
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/core": "^11.0.0",
+    "handlebars": "^4.7.8",
+    "reflect-metadata": "^0.2.0",
+    "rxjs": "^7.8.0"
+  },
+  "peerDependenciesMeta": {
+    "typeorm": { "optional": true },
+    "@nestjs/typeorm": { "optional": true },
+    "@prisma/client": { "optional": true },
+    "drizzle-orm": { "optional": true },
+    "mongoose": { "optional": true },
+    "@nestjs/mongoose": { "optional": true }
+  },
+  "devDependencies": {
+    "@nestjs/common": "^11.1.3",
+    "@nestjs/core": "^11.1.3",
+    "@types/node": "^24.0.0",
+    "handlebars": "^4.7.8",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "tailwindcss": "^4.1.8",
+    "@tailwindcss/cli": "^4.1.8",
+    "typescript": "^5.7.3",
+    "typeorm": "^0.3.25",
+    "drizzle-orm": "^0.44.2"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/coolsam726/nestweaver.git",
+    "directory": "packages/loom"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

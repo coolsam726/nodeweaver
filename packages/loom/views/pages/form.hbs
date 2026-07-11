@@ -1,0 +1,111 @@
+{{#if embed}}
+  <form
+    id="loom-form"
+    data-loom-embed-form
+    method="post"
+    action="{{#if (eq mode 'create')}}{{basePath}}/{{resource.slug}}{{else}}{{basePath}}/{{resource.slug}}/{{id}}{{/if}}"
+    class="space-y-4"
+  >
+    {{#if embed}}<input type="hidden" name="_loom_embed" value="1" />{{/if}}
+    {{#each resource.form.sections}}
+      <section class="loom-embed-section">
+        <div class="loom-embed-section__header">
+          <h3 class="text-sm font-semibold text-heading">{{title}}</h3>
+          {{#if description}}<p class="mt-1 text-sm text-body-subtle">{{description}}</p>{{/if}}
+        </div>
+        <div class="loom-form-grid" style="--loom-form-cols: {{or columns 1}}">
+          {{#each fields}}
+            {{#unless hiddenOnForm}}
+              <div class="loom-field-cell" style="{{gridItemStyle this ../columns}}">
+                {{#if @root.readonly}}
+                  {{#unless hiddenOnDetail}}
+                    <div class="loom-field loom-field--readonly">
+                      <label class="loom-field__label">{{label}}</label>
+                      <p class="loom-field__value">{{fieldValue @root.record this}}</p>
+                    </div>
+                  {{/unless}}
+                {{else}}
+                  {{#unless (and createOnly (eq @root.mode 'edit'))}}
+                    {{> field-input}}
+                  {{/unless}}
+                {{/if}}
+              </div>
+            {{/unless}}
+          {{/each}}
+        </div>
+      </section>
+    {{/each}}
+    {{#unless readonly}}
+      <div class="flex justify-end gap-2 pt-1">
+        <button type="submit" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white rounded-md bg-fg-brand hover:opacity-90 transition">
+          {{#if (eq mode 'create')}}Create{{else}}Save{{/if}}
+        </button>
+      </div>
+    {{/unless}}
+    {{#if readonly}}
+      <div class="flex justify-end gap-2 pt-1">
+        <button
+          type="button"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white rounded-md bg-fg-brand hover:opacity-90 transition"
+          @click="window.LoomUI.openDialog({ url: '{{basePath}}/{{resource.slug}}/{{id}}/edit', title: 'Edit {{resource.singularLabel}}', slug: '{{resource.slug}}', replace: true })"
+        >Edit</button>
+      </div>
+    {{/if}}
+  </form>
+{{else}}
+<div class="mx-auto max-w-5xl space-y-6">
+  <div class="loom-form-actions-bar flex items-center justify-between gap-3 sticky top-0 z-20 py-2 mb-2 bg-loom-shell/95 backdrop-blur-sm">
+    <span class="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full
+      {{#if readonly}}bg-badge-neutral text-body-subtle
+      {{else}}{{#if (eq mode 'edit')}}bg-warning-soft text-warning-strong
+      {{else}}{{#if (eq mode 'create')}}bg-success-soft text-success-strong
+      {{else}}bg-badge-neutral text-body-subtle{{/if}}{{/if}}{{/if}}">
+      {{#if readonly}}detail{{else}}{{mode}}{{/if}}
+    </span>
+    <div class="flex items-center gap-2">
+      {{#if readonly}}
+        <a href="{{basePath}}/{{resource.slug}}/{{id}}/edit" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white rounded-md bg-fg-brand hover:opacity-90 transition">Edit</a>
+      {{else}}
+        <button type="submit" form="loom-form" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white rounded-md bg-fg-brand hover:opacity-90 transition">
+          {{#if (eq mode 'create')}}Create{{else}}Save{{/if}}
+        </button>
+        <a href="{{basePath}}/{{resource.slug}}" data-loom-list-href="{{resource.slug}}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border border-default text-body rounded-md hover:bg-surface-hover transition">Cancel</a>
+      {{/if}}
+    </div>
+  </div>
+
+  <form
+    id="loom-form"
+    method="post"
+    action="{{#if (eq mode 'create')}}{{basePath}}/{{resource.slug}}{{else}}{{basePath}}/{{resource.slug}}/{{id}}{{/if}}"
+    class="space-y-6"
+  >
+    {{#each resource.form.sections}}
+      <fieldset class="loom-card rounded-xl p-6">
+        <legend class="text-sm font-semibold text-heading mb-4 px-1">{{title}}</legend>
+        {{#if description}}<p class="mb-4 -mt-2 text-sm text-body-subtle">{{description}}</p>{{/if}}
+        <div class="loom-form-grid" style="--loom-form-cols: {{or columns 1}}">
+          {{#each fields}}
+            {{#unless hiddenOnForm}}
+              <div class="loom-field-cell" style="{{gridItemStyle this ../columns}}">
+                {{#if @root.readonly}}
+                  {{#unless hiddenOnDetail}}
+                    <div class="loom-field loom-field--readonly">
+                      <label class="loom-field__label">{{label}}</label>
+                      <p class="loom-field__value">{{fieldValue @root.record this}}</p>
+                    </div>
+                  {{/unless}}
+                {{else}}
+                  {{#unless (and createOnly (eq @root.mode 'edit'))}}
+                    {{> field-input}}
+                  {{/unless}}
+                {{/if}}
+              </div>
+            {{/unless}}
+          {{/each}}
+        </div>
+      </fieldset>
+    {{/each}}
+  </form>
+</div>
+{{/if}}

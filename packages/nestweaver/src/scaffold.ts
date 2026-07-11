@@ -17,8 +17,8 @@ import {
 import { isSsrFrontend, isSpaFrontend } from './frontend.js';
 import { NEST_DEFAULT_PORT } from './constants.js';
 import { generateTypeormDatabaseModule } from './generators/typeorm-database-module.js';
-import { generateVelmAdminFiles } from './generators/velm-admin.js';
-import { vendorVelmPackage } from './generators/velm-dependency.js';
+import { generateLoomAdminFiles } from './generators/loom-admin.js';
+import { vendorLoomPackage } from './generators/loom-dependency.js';
 import { generatePnpmWorkspace } from './generators/pnpm-workspace.js';
 import { renderFile, toContext } from './render.js';
 import type { ScaffoldOptions, TemplateContext } from './types.js';
@@ -43,7 +43,7 @@ export async function scaffoldProject(options: ScaffoldOptions): Promise<void> {
   applyFeatures(options, context);
 
   if (options.admin) {
-    vendorVelmPackage(options.targetDir);
+    vendorLoomPackage(options.targetDir);
   }
 
   writeGeneratedFiles(options, context);
@@ -138,7 +138,7 @@ function writeGeneratedFiles(
   }
 
   if (options.admin) {
-    for (const [relativePath, content] of generateVelmAdminFiles(options)) {
+    for (const [relativePath, content] of generateLoomAdminFiles(options)) {
       writes.push([join(targetDir, relativePath), content]);
     }
   }

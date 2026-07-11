@@ -101,11 +101,7 @@ function infraServices(options: ScaffoldOptions): string[] {
 }
 
 function infraVolumeNames(options: ScaffoldOptions): string[] {
-  const volumes: string[] = [
-    'app_node_modules',
-    'app_api_node_modules',
-    'app_web_node_modules',
-  ];
+  const volumes: string[] = ['app_node_modules'];
 
   if (options.database === 'postgresql') volumes.push('postgres_data');
   if (options.database === 'mysql') volumes.push('mysql_data');
@@ -172,8 +168,6 @@ function appVolumes(options: ScaffoldOptions): string[] {
     '    volumes:',
     '      - .:/app',
     '      - app_node_modules:/app/node_modules',
-    '      - app_api_node_modules:/app/apps/api/node_modules',
-    '      - app_web_node_modules:/app/apps/web/node_modules',
   ];
 
   if (options.database === 'sqlite') {

@@ -1,5 +1,5 @@
 import type { ScaffoldOptions } from '../types.js';
-import { resolveVelmDependency } from './velm-dependency.js';
+import { resolveLoomDependency } from './loom-dependency.js';
 
 type Deps = Record<string, string>;
 
@@ -72,7 +72,7 @@ function adminDeps(options: ScaffoldOptions): Deps {
   }
   return {
     ...ADMIN_BASE,
-    '@weaver/velm': resolveVelmDependency(options.targetDir).specifier,
+    '@nestweaver/loom': resolveLoomDependency(options.targetDir).specifier,
   };
 }
 

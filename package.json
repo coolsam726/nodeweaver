@@ -7,7 +7,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "pnpm --filter nestweaver build && pnpm --filter create-nestweaver build && pnpm --filter @weaver/velm build",
+    "build": "pnpm --filter nestweaver build && pnpm --filter create-nestweaver build && pnpm --filter @nestweaver/loom build",
     "dev": "pnpm --filter nestweaver dev",
     "create": "node packages/create-nestweaver/dist/index.js",
     "create:weaver": "node packages/nestweaver/dist/cli.js",

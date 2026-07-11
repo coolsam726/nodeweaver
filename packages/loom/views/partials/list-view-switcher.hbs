@@ -1,0 +1,21 @@
+{{#if showListViewSwitcher}}
+  <nav
+    class="inline-flex items-center rounded-lg bg-surface-inset p-0.5"
+    aria-label="List view"
+    role="tablist"
+  >
+    {{#each listViews}}
+      <a
+        href="{{href}}"
+        role="tab"
+        aria-selected="{{active}}"
+        data-loom-list-view="{{id}}"
+        data-loom-list-view-slug="{{@root.resource.slug}}"
+        class="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition {{#if active}}bg-neutral-primary text-heading{{else}}text-body-subtle hover:text-heading hover:bg-surface-hover{{/if}}"
+      >
+        {{> icon name=icon class="w-3.5 h-3.5"}}
+        <span>{{label}}</span>
+      </a>
+    {{/each}}
+  </nav>
+{{/if}}

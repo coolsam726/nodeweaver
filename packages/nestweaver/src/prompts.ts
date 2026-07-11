@@ -119,12 +119,12 @@ export async function collectOptions(
   });
 
   const admin = await confirm({
-    message: 'Add declarative admin panel (@weaver/velm at /admin)?',
-    default: false,
+    message: 'Add Loom admin panel (@nestweaver/loom at /admin)?',
+    default: true,
   });
 
   if (admin && orm === 'none') {
-    console.log('  Tip: add an ORM to scaffold Companies and Users resources in Velm.');
+    console.log('  Tip: add an ORM to scaffold Companies and Users resources in Loom.');
   }
 
   const frontendSummary = supportsRenderMode(frontend)

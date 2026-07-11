@@ -1,13 +1,17 @@
 #!/bin/sh
 set -e
 
-# Dependency dirs are populated during image build as root, then persisted in
-# named volumes. Reconcile ownership before dropping to the host user.
+# Named volumes can outlive image rebuilds and leave pnpm's symlink tree incomplete
+# (e.g. browserslist -> node-releases). Reconcile on every container start.
+pnpm install --frozen-lockfile
+
+# postinstall (nuxt prepare) writes to bind-mounted apps/* as root — fix ownership
+# so the dev process can update .nuxt and other generated files.
 if [ -n "${APP_UID:-}" ] && [ -n "${APP_GID:-}" ]; then
   for dir in \
     /app/node_modules \
-    /app/apps/api/node_modules \
-    /app/apps/web/node_modules \
+    /app/apps \
+    /app/packages \
     /app/data
   do
     if [ -e "$dir" ]; then

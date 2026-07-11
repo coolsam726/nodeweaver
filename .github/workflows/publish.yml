@@ -21,6 +21,9 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    env:
+      PUBLISH_FLAGS: --access public --no-git-checks
+      DRY_RUN: ${{ inputs.dry_run && '--dry-run' || '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -44,12 +47,20 @@ jobs:
       - name: Test scaffold
         run: pnpm test
 
+      - name: Pack @nestweaver/loom (validate)
+        run: pnpm --filter @nestweaver/loom pack --pack-destination /tmp/npm-pack
+
+      - name: Publish @nestweaver/loom
+        run: pnpm --filter @nestweaver/loom publish $PUBLISH_FLAGS $DRY_RUN
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
       - name: Publish nestweaver
-        run: pnpm --filter nestweaver publish --access public --no-git-checks ${{ inputs.dry_run && '--dry-run' || '' }}
+        run: pnpm --filter nestweaver publish $PUBLISH_FLAGS $DRY_RUN
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish create-nestweaver
-        run: pnpm --filter create-nestweaver publish --access public --no-git-checks ${{ inputs.dry_run && '--dry-run' || '' }}
+        run: pnpm --filter create-nestweaver publish $PUBLISH_FLAGS $DRY_RUN
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

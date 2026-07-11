@@ -74,13 +74,14 @@ pnpm run create:weaver my-app
 
 1. Create an [npm access token](https://www.npmjs.com/settings/~your-user/tokens) with **Publish** permission.
 2. Add it to the GitHub repository as secret **`NPM_TOKEN`**.
+3. On first release, publishing `@nestweaver/loom` creates the public **`@nestweaver`** scope on npm.
 
 ### Release flow
 
-1. Bump versions in `packages/nestweaver/package.json` and `packages/create-nestweaver/package.json` (keep them in sync).
+1. Bump versions in `packages/loom/package.json`, `packages/nestweaver/package.json`, and `packages/create-nestweaver/package.json` (keep versions in sync).
 2. Commit, push to `main`, and [create a GitHub Release](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository#creating-a-release) for the tag (e.g. `v0.1.0`).
 
-The **Publish** workflow runs on `release: published`, builds, smoke-tests the scaffolder, then publishes `nestweaver` and `create-nestweaver`.
+The **Publish** workflow runs on `release: published`, builds, smoke-tests the scaffolder, then publishes `@nestweaver/loom`, `nestweaver`, and `create-nestweaver`.
 
 ### Manual publish (dry run)
 
@@ -90,6 +91,7 @@ GitHub → Actions → **Publish** → **Run workflow** → enable **Dry run** t
 
 ```bash
 pnpm build
+pnpm --filter @nestweaver/loom publish --access public --no-git-checks
 pnpm --filter nestweaver publish --access public --no-git-checks
 pnpm --filter create-nestweaver publish --access public --no-git-checks
 ```
@@ -100,6 +102,7 @@ Users then run `npm create nestweaver@latest`.
 
 | Package | Role |
 |---------|------|
+| `@nestweaver/loom` | Declarative admin panel for NestJS (`/admin` CRUD UI) |
 | `create-nestweaver` | npm entry for `npm create nestweaver` |
 | `nestweaver` | Core scaffolder, templates, and `weaver` CLI |
 
