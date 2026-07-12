@@ -9,6 +9,9 @@
   {{/if}}
   <link rel="stylesheet" href="{{basePath}}/assets/admin.css" />
   <link rel="stylesheet" href="{{basePath}}/assets/branding.css" />
+  {{#if csrfToken}}
+    <meta name="csrf-token" content="{{csrfToken}}" />
+  {{/if}}
   <script>
     (function () {
       const stored = localStorage.getItem('loom-theme');
@@ -35,6 +38,7 @@
     {{/if}}
 
     <form method="post" action="{{basePath}}/login" class="loom-card rounded-xl p-6 space-y-4 shadow-sm">
+      {{> csrf}}
       <input type="hidden" name="redirect" value="{{redirect}}" />
 
       <div class="space-y-1.5">

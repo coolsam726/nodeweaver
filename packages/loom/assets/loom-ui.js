@@ -36,6 +36,17 @@
       .replace(/"/g, '&quot;');
   }
 
+  function csrfToken() {
+    return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+  }
+
+  function csrfHeaders(extra) {
+    const headers = { ...(extra || {}) };
+    const token = csrfToken();
+    if (token) headers['X-CSRF-Token'] = token;
+    return headers;
+  }
+
   function normalizeToast(typeOrOptions, messageOrDuration, durationMs) {
     if (typeof typeOrOptions === 'object' && typeOrOptions !== null) {
       const options = typeOrOptions;
@@ -610,7 +621,7 @@
         try {
           const response = await fetch(this.quickCreateUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: csrfHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({ field: this.name, name }),
           });
           if (response.status === 400) {
@@ -837,7 +848,7 @@
         try {
           const response = await fetch(this.quickCreateUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: csrfHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({ field: this.name, name }),
           });
           if (response.status === 400) {
@@ -1363,11 +1374,15 @@
           if (submitBtn) submitBtn.disabled = true;
           try {
             const body = new URLSearchParams(new FormData(form));
+            if (!body.has('_csrf')) {
+              const token = csrfToken();
+              if (token) body.set('_csrf', token);
+            }
             const res = await fetch(form.action, {
               method: 'POST',
-              headers: {
+              headers: csrfHeaders({
                 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-              },
+              }),
               body,
               redirect: 'follow',
             });
@@ -1529,6 +1544,14 @@
         const form = document.createElement('form');
         form.method = 'post';
         form.action = this.confirmAction;
+        const token = csrfToken();
+        if (token) {
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = '_csrf';
+          input.value = token;
+          form.appendChild(input);
+        }
         document.body.appendChild(form);
         form.submit();
       },

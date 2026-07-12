@@ -17,14 +17,16 @@ import {
 } from '@nestjs/common';
 import { LoomAuthorizationError } from '../core/abilities.js';
 import { LoginRateLimitError } from '../core/login-rate-limit.js';
+import { LoomCsrfError } from '../core/csrf.js';
 import { normalizeListQuery } from '../core/list-query.js';
 import type { SortDirection } from '../core/types.js';
 import { LoomPublic } from './loom-auth.decorators.js';
 import { LoomAuthContextInterceptor } from './loom-auth-context.interceptor.js';
-import { setResponseCookie } from './loom-auth.interceptor.js';
+import { setResponseCookies } from './loom-auth.interceptor.js';
 import { LoomAuthService } from './loom-auth.service.js';
 import { LoomService } from './loom.service.js';
 import { clientIpFromRequest } from './request-ip.js';
+import { currentLoomUser } from '../core/auth.js';
 
 export function createLoomApiController(
   prefix = 'api/loom',
@@ -98,7 +100,7 @@ export function createLoomApiController(
           sendJson(res, 401, { message: 'Invalid email or password' });
           return;
         }
-        setResponseCookie(res, result.cookie);
+        setResponseCookies(res, result.cookies);
         sendJson(res, 200, {
           user: {
             id: result.user.id,
@@ -116,6 +118,10 @@ export function createLoomApiController(
           });
           return;
         }
+        if (error instanceof LoomCsrfError) {
+          sendJson(res, 403, { message: error.message });
+          return;
+        }
         throw error;
       }
     }
@@ -125,6 +131,7 @@ export function createLoomApiController(
     async logout(
       @Res() res: {
         setHeader?: (name: string, value: string) => void;
+        appendHeader?: (name: string, value: string) => void;
         header?: (name: string, value: string) => unknown;
         status?: (code: number) => { send?: (body?: unknown) => unknown; json?: (body?: unknown) => unknown };
         send?: (body?: unknown) => unknown;
@@ -132,7 +139,11 @@ export function createLoomApiController(
         statusCode?: number;
       },
     ): Promise<void> {
-      setResponseCookie(res, this.auth.clearSessionCookie());
+      const user = currentLoomUser();
+      if (user) {
+        await this.auth.bumpSessionVersion(user.id);
+      }
+      setResponseCookies(res, this.auth.clearSessionCookies());
       sendJson(res, 200, { ok: true });
     }
 

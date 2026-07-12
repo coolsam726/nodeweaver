@@ -24,6 +24,7 @@ model User {
   email     String   @unique
   password  String?
   roleIds   Json     @default("[]")
+  sessionVersion Int @default(0)
   companyId Int?
   company   Company? @relation(fields: [companyId], references: [id])
   active    Boolean  @default(true)

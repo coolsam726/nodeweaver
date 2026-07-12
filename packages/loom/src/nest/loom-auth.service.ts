@@ -14,6 +14,17 @@ import {
   type LoomAuthUser,
 } from '../core/auth.js';
 import { LOOM_ABILITIES } from '../core/abilities.js';
+import {
+  buildCsrfCookie,
+  createCsrfToken,
+  csrfCookieName,
+  isCsrfEnabled,
+  parseSignedCsrfToken,
+  readCsrfFromRequest,
+  signCsrfToken,
+  tokensMatch,
+  LoomCsrfError,
+} from '../core/csrf.js';
 import { relationIdsFromValue } from '../core/relations.js';
 import { ResourceRegistry } from '../core/registry.js';
 import {
@@ -34,6 +45,8 @@ export class LoomAuthService implements OnModuleInit {
   private readonly logger = new Logger(LoomAuthService.name);
   private rbac: LoomRbacStore;
   private readonly loginLimiter: LoginRateLimiter | null;
+  /** In-memory session versions (also persisted when `sessionVersion` field exists). */
+  private readonly sessionVersions = new Map<string, number>();
 
   constructor(
     @Inject(LOOM_OPTIONS) private readonly options: LoomModuleOptions,
@@ -100,15 +113,26 @@ export class LoomAuthService implements OnModuleInit {
     const token = getRequestCookie(req, cookieName);
     const session = verifySession(token, this.options.auth.secret);
     if (!session) return null;
-    return this.findUserById(session.sub);
+    const record = await this.findUserRecordById(session.sub);
+    if (!record) return null;
+    const currentSv = this.readSessionVersion(record, session.sub);
+    const tokenSv = session.sv ?? 0;
+    if (tokenSv !== currentSv) return null;
+    return this.hydrateAuthUser(record);
   }
 
   async findUserById(id: string): Promise<LoomAuthUser | null> {
+    const record = await this.findUserRecordById(id);
+    return record ? this.hydrateAuthUser(record) : null;
+  }
+
+  private async findUserRecordById(
+    id: string,
+  ): Promise<Record<string, unknown> | null> {
     if (!this.options.auth) return null;
     const meta = this.userMeta();
     try {
-      const record = await this.adapter.findOne(meta, id);
-      return this.hydrateAuthUser(record);
+      return await this.adapter.findOne(meta, id);
     } catch {
       return null;
     }
@@ -120,7 +144,7 @@ export class LoomAuthService implements OnModuleInit {
     context?: { ip?: string },
   ): Promise<{
     user: LoomAuthUser;
-    cookie: string;
+    cookies: string[];
   } | null> {
     if (!this.options.auth) return null;
     const auth = this.options.auth;
@@ -173,21 +197,128 @@ export class LoomAuthService implements OnModuleInit {
     }
 
     const maxAgeMs = auth.maxAgeMs ?? 7 * 24 * 60 * 60 * 1000;
+    const sv = this.readSessionVersion(record, user.id);
     const token = signSession(
-      { sub: user.id, exp: Date.now() + maxAgeMs },
+      { sub: user.id, exp: Date.now() + maxAgeMs, sv },
       auth.secret,
     );
+    const cookies = [buildSessionCookie(auth, token)];
+    if (isCsrfEnabled(auth)) {
+      cookies.push(this.issueCsrfCookie());
+    }
+    return { user, cookies };
+  }
+
+  clearSessionCookies(): string[] {
+    if (!this.options.auth) {
+      return ['loom_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax'];
+    }
+    const cookies = [buildSessionCookie(this.options.auth, null)];
+    if (isCsrfEnabled(this.options.auth)) {
+      cookies.push(buildCsrfCookie(this.options.auth, null));
+    }
+    return cookies;
+  }
+
+  /** @deprecated use clearSessionCookies */
+  clearSessionCookie(): string {
+    return this.clearSessionCookies()[0] ?? '';
+  }
+
+  issueCsrfCookie(): string {
+    if (!this.options.auth || !isCsrfEnabled(this.options.auth)) {
+      return '';
+    }
+    const raw = createCsrfToken();
+    const signed = signCsrfToken(raw, this.options.auth.secret);
+    return buildCsrfCookie(this.options.auth, signed);
+  }
+
+  /**
+   * Return the raw CSRF token for HTML embedding; optionally a Set-Cookie to issue.
+   * @param issueIfMissing When false (unsafe methods), do not mint a new token.
+   */
+  ensureCsrf(
+    req: {
+      headers?: Record<string, unknown>;
+      cookies?: Record<string, string>;
+    },
+    issueIfMissing = true,
+  ): { token: string; setCookie?: string } {
+    if (!this.options.auth || !isCsrfEnabled(this.options.auth)) {
+      return { token: '' };
+    }
+    const name = csrfCookieName(this.options.auth);
+    const cookie = getRequestCookie(req, name);
+    const existing = parseSignedCsrfToken(cookie, this.options.auth.secret);
+    if (existing) return { token: existing };
+    if (!issueIfMissing) return { token: '' };
+    const raw = createCsrfToken();
+    const signed = signCsrfToken(raw, this.options.auth.secret);
     return {
-      user,
-      cookie: buildSessionCookie(auth, token),
+      token: raw,
+      setCookie: buildCsrfCookie(this.options.auth, signed),
     };
   }
 
-  clearSessionCookie(): string {
-    if (!this.options.auth) {
-      return 'loom_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax';
+  resolveCsrfToken(req: {
+    headers?: Record<string, unknown>;
+    cookies?: Record<string, string>;
+  }): string {
+    return this.ensureCsrf(req).token;
+  }
+
+  assertCsrf(req: {
+    method?: string;
+    headers?: Record<string, unknown>;
+    cookies?: Record<string, string>;
+    body?: Record<string, unknown>;
+  }): void {
+    if (!this.options.auth || !isCsrfEnabled(this.options.auth)) return;
+    const method = (req.method ?? 'GET').toUpperCase();
+    if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return;
+
+    const name = csrfCookieName(this.options.auth);
+    const cookieRaw = getRequestCookie(req, name);
+    const cookieToken = parseSignedCsrfToken(cookieRaw, this.options.auth.secret);
+    const submitted = readCsrfFromRequest(req);
+    if (!tokensMatch(cookieToken ?? undefined, submitted)) {
+      throw new LoomCsrfError();
     }
-    return buildSessionCookie(this.options.auth, null);
+  }
+
+  async bumpSessionVersion(userId: string): Promise<number> {
+    const field = this.options.auth?.sessionVersionField ?? 'sessionVersion';
+    let current = this.sessionVersions.get(userId) ?? 0;
+    try {
+      const record = await this.findUserRecordById(userId);
+      if (record) {
+        current = Math.max(current, this.readSessionVersion(record, userId));
+      }
+      const next = current + 1;
+      this.sessionVersions.set(userId, next);
+      try {
+        await this.adapter.update(this.userMeta(), userId, { [field]: next });
+      } catch {
+        // Column may not exist yet — memory map still revokes on this process.
+      }
+      return next;
+    } catch {
+      const next = current + 1;
+      this.sessionVersions.set(userId, next);
+      return next;
+    }
+  }
+
+  private readSessionVersion(
+    record: Record<string, unknown>,
+    userId: string,
+  ): number {
+    const field = this.options.auth?.sessionVersionField ?? 'sessionVersion';
+    const fromDb = Number(record[field] ?? 0);
+    const dbVersion = Number.isFinite(fromDb) ? fromDb : 0;
+    const fromMemory = this.sessionVersions.get(userId) ?? 0;
+    return Math.max(dbVersion, fromMemory);
   }
 
   private async hydrateAuthUser(

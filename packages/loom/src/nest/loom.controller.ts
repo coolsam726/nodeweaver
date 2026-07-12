@@ -27,9 +27,11 @@ import { loomAdminCssPath, loomUiJsPath } from './paths.js';
 import { LoomService } from './loom.service.js';
 import { LoomViewService } from './loom-view.service.js';
 import { LoomAuthService } from './loom-auth.service.js';
-import { LoomAuthInterceptor, setResponseCookie } from './loom-auth.interceptor.js';
+import { LoomAuthInterceptor, setResponseCookie, setResponseCookies } from './loom-auth.interceptor.js';
 import { RelationQuickCreateBlockedError } from '../core/relations.js';
 import { clientIpFromRequest } from './request-ip.js';
+import { LoomCsrfError } from '../core/csrf.js';
+import { currentCsrfToken, currentLoomUser } from '../core/auth.js';
 
 export function createLoomController(basePath = '/admin'): new (...args: never[]) => object {
   const route = basePath.replace(/^\//, '') || 'admin';
@@ -82,6 +84,7 @@ export function createLoomController(basePath = '/admin'): new (...args: never[]
           branding: this.loom.branding,
           redirect: redirectTo || this.loom.basePath,
           flash: flashFromQuery(undefined, error),
+          csrfToken: currentCsrfToken(),
         },
         { layout: 'bare' },
       );
@@ -115,10 +118,18 @@ export function createLoomController(basePath = '/admin'): new (...args: never[]
           sendRedirect(res, `${this.loom.basePath}/login?error=${message}&redirect=${encodeURIComponent(redirectTo)}`);
           return;
         }
-        setResponseCookie(res, result.cookie);
+        setResponseCookies(res, result.cookies);
         sendRedirect(res, redirectTo);
       } catch (error) {
         if (error instanceof LoginRateLimitError) {
+          const message = encodeURIComponent(error.message);
+          sendRedirect(
+            res,
+            `${this.loom.basePath}/login?error=${message}&redirect=${encodeURIComponent(redirectTo)}`,
+          );
+          return;
+        }
+        if (error instanceof LoomCsrfError) {
           const message = encodeURIComponent(error.message);
           sendRedirect(
             res,
@@ -134,6 +145,7 @@ export function createLoomController(basePath = '/admin'): new (...args: never[]
     async logout(
       @Res() res: {
         setHeader?: (name: string, value: string) => void;
+        appendHeader?: (name: string, value: string) => void;
         header?: (name: string, value: string) => unknown;
         redirect?: ((status: number, url: string) => unknown) | ((url: string, status?: number) => unknown);
         status?: (code: number) => { send?: (body?: unknown) => unknown };
@@ -141,7 +153,11 @@ export function createLoomController(basePath = '/admin'): new (...args: never[]
         statusCode?: number;
       },
     ): Promise<void> {
-      setResponseCookie(res, this.auth.clearSessionCookie());
+      const user = currentLoomUser();
+      if (user) {
+        await this.auth.bumpSessionVersion(user.id);
+      }
+      setResponseCookies(res, this.auth.clearSessionCookies());
       sendRedirect(res, this.auth.loginPath);
     }
 
@@ -584,6 +600,7 @@ function shellContext(
     userInitial: loom.userInitial(),
     authEnabled: loom.authEnabled,
     logoutPath: `${loom.basePath}/logout`,
+    csrfToken: currentCsrfToken(),
     abilities,
     ...menu,
     ...extra,
