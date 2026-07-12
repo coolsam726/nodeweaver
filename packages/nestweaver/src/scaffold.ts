@@ -17,6 +17,8 @@ import {
 import { isSsrFrontend, isSpaFrontend } from './frontend.js';
 import { NEST_DEFAULT_PORT } from './constants.js';
 import { generateTypeormDatabaseModule } from './generators/typeorm-database-module.js';
+import { generateTypeormDataSource } from './generators/typeorm-data-source.js';
+import { generateTypeormInitMigration } from './generators/typeorm-migration.js';
 import { generateLoomAdminFiles } from './generators/loom-admin.js';
 import { vendorLoomPackage } from './generators/loom-dependency.js';
 import { generatePnpmWorkspace } from './generators/pnpm-workspace.js';
@@ -131,10 +133,23 @@ function writeGeneratedFiles(
   }
 
   if (options.orm === 'typeorm' && options.database) {
-    writes.push([
-      join(targetDir, 'apps/api/src/database/database.module.ts'),
-      generateTypeormDatabaseModule(options),
-    ]);
+    writes.push(
+      [
+        join(targetDir, 'apps/api/src/database/database.module.ts'),
+        generateTypeormDatabaseModule(options),
+      ],
+      [
+        join(targetDir, 'apps/api/src/database/data-source.ts'),
+        generateTypeormDataSource(options),
+      ],
+      [
+        join(
+          targetDir,
+          'apps/api/src/database/migrations/1735689600000-InitSchema.ts',
+        ),
+        generateTypeormInitMigration(),
+      ],
+    );
   }
 
   if (options.admin) {
@@ -205,6 +220,9 @@ function printNextSteps(options: ScaffoldOptions): void {
   const infra = dockerInfraServiceNames(options);
   if (infra.length > 0) {
     console.log(`  docker compose up -d ${infra.join(' ')}`);
+  }
+  if (options.orm === 'typeorm' || options.orm === 'prisma' || options.orm === 'drizzle') {
+    console.log('  pnpm --filter api db:migrate   # apply ACL / schema migrations');
   }
   console.log('  pnpm dev');
   console.log('');

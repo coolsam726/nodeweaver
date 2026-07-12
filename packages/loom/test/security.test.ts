@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { assertLoomProductionAuth } from '../src/core/assert-options.js';
 import { LoginRateLimitError, LoginRateLimiter } from '../src/core/login-rate-limit.js';
-import { createNoopRbacStore } from '../src/core/rbac-store.js';
+import { createLoomRbacStore, createNoopRbacStore } from '../src/core/rbac-store.js';
 import { resolveSortField } from '../src/core/list-query.js';
 import type { ResourceMeta } from '../src/core/types.js';
 
@@ -67,6 +67,19 @@ describe('createNoopRbacStore', () => {
     const loaded = await store.loadPermissionNamesForUser('u1', [role.id]);
     assert.deepEqual(loaded.roles, ['viewer']);
     assert.ok(loaded.permissions.includes('tags:viewAny'));
+  });
+});
+
+describe('createLoomRbacStore drizzle', () => {
+  it('fails closed when ACL tables are missing from schema', () => {
+    assert.throws(
+      () =>
+        createLoomRbacStore('drizzle', {
+          db: {},
+          schema: {},
+        }),
+      /loomPermissions \/ loomRoles/,
+    );
   });
 });
 

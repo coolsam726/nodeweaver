@@ -25,9 +25,9 @@ When you enable the admin panel during prompts, Nestweaver scaffolds a full [Loo
 - `apps/api/src/admin/loom-admin.module.ts` — `LoomModule.forRootAsync` with ORM inject + auth
 - Resources: Company, User, Role, Permission (extending `@nestweaver/loom/base`)
 - ACL models matched to the selected ORM:
-  - **TypeORM** — `LoomRole` / `LoomPermission` entities registered in `DatabaseModule`
-  - **Prisma** — `LoomRole` / `LoomPermission` in `schema.prisma` (`Json` id-lists on MySQL/SQLite)
-  - **Drizzle** — `loomRoles` / `loomPermissions` tables (id-lists as JSON text)
+  - **TypeORM** — `LoomRole` / `LoomPermission` entities registered in `DatabaseModule`, plus `migrations/` + `data-source.ts` (`db:migrate`; prod `migrationsRun`)
+  - **Prisma** — `LoomRole` / `LoomPermission` in `schema.prisma` + initial `prisma/migrations` (`db:migrate` / `db:push`)
+  - **Drizzle** — `loomRoles` / `loomPermissions` tables + `drizzle/0000_init.sql` (`db:migrate` / `db:push`)
   - **Mongoose** — Company/User schemas; Role/Permission registered at runtime by Loom
 
 ### Env vars (scaffolded)
@@ -41,5 +41,7 @@ When you enable the admin panel during prompts, Nestweaver scaffolds a full [Loo
 | `LOOM_BRAND_*` | Optional branding overrides (see Loom README) |
 
 After `docker compose up` / `pnpm dev`, open `/admin` and sign in with the seed credentials.
+
+For production databases, run `pnpm --filter api db:migrate` (TypeORM also applies migrations automatically when `NODE_ENV=production`).
 
 Full feature docs: [`@nestweaver/loom` README](../loom/README.md).

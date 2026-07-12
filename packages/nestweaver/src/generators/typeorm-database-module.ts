@@ -11,7 +11,14 @@ export function generateTypeormDatabaseModule(
   const imports = `import { Company } from './company.entity';
 import { LoomPermission } from './loom-permission.entity';
 import { LoomRole } from './loom-role.entity';
-import { User } from './user.entity';`;
+import { User } from './user.entity';
+import { InitSchema1735689600000 } from './migrations/1735689600000-InitSchema';`;
+
+  const commonOptions = `entities: [${entities}],
+      migrations: [InitSchema1735689600000],
+      // Dev: auto-sync schema. Prod: run migrations on boot (no synchronize).
+      synchronize: process.env.NODE_ENV !== 'production',
+      migrationsRun: process.env.NODE_ENV === 'production',`;
 
   if (options.database === 'sqlite') {
     return `import { Module } from '@nestjs/common';
@@ -23,8 +30,7 @@ ${imports}
     TypeOrmModule.forRoot({
       type: 'better-sqlite3',
       database: process.env.DATABASE_URL?.replace(/^file:/, '') ?? './data/dev.db',
-      entities: [${entities}],
-      synchronize: process.env.NODE_ENV !== 'production',
+      ${commonOptions}
     }),
     TypeOrmModule.forFeature([${entities}]),
   ],
@@ -45,8 +51,7 @@ ${imports}
     TypeOrmModule.forRoot({
       type: '${type}',
       url: process.env.DATABASE_URL,
-      entities: [${entities}],
-      synchronize: process.env.NODE_ENV !== 'production',
+      ${commonOptions}
     }),
     TypeOrmModule.forFeature([${entities}]),
   ],

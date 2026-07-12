@@ -165,12 +165,22 @@ export function generateApiPackageJson(
   if (options.orm === 'prisma') {
     scripts.postinstall = 'prisma generate --schema=./prisma/schema.prisma';
     scripts['db:push'] = 'prisma db push --schema=./prisma/schema.prisma';
+    scripts['db:migrate'] =
+      'prisma migrate deploy --schema=./prisma/schema.prisma';
+    scripts['db:migrate:dev'] =
+      'prisma migrate dev --schema=./prisma/schema.prisma';
     scripts['db:studio'] = 'prisma studio --schema=./prisma/schema.prisma';
   }
 
   if (options.orm === 'drizzle') {
     scripts['db:push'] = 'drizzle-kit push';
+    scripts['db:migrate'] = 'drizzle-kit migrate';
     scripts['db:studio'] = 'drizzle-kit studio';
+  }
+
+  if (options.orm === 'typeorm') {
+    scripts['db:migrate'] =
+      'typeorm-ts-node-commonjs migration:run -d src/database/data-source.ts';
   }
 
   return {

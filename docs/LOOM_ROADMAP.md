@@ -71,18 +71,14 @@ Until Critical + High are done, treat Loom as **beta / early admin**, not a prod
 
 - [ ] All **Critical** and **High** issues closed (or explicitly deferred with README callouts)
 - [ ] CI runs Loom tests
-- [ ] Production scaffold creates ACL tables without `synchronize: true`
-- [ ] Auth fail-closed in production without secret
-- [ ] Sessions revocable; login rate-limited; CSRF covered
-- [ ] Docs match shipped behavior
+- [x] Production scaffold creates ACL tables without `synchronize: true`
+- [x] Auth fail-closed in production without secret
+- [x] Sessions revocable; login rate-limited; CSRF covered
+- [x] Docs match shipped behavior (Wave 1)
 
 ## Suggested implementation order inside Wave 1
 
-1. **#9 tests** (safety net) in parallel with **#19 docs honesty** (quick win from Wave 2)
-2. **#16 fail-closed** early (small, high leverage)
-3. **#10 rate limit** → **#11 CSRF** → **#12 session revocation** → **#24 cookie path**
-4. **#14 migrations** (unblocks real deploys)
-5. **#13 tenancy** (product decision A vs B)
+_(Complete.)_ Tests → fail-closed → rate limit → CSRF → sessions → migrations → tenancy honesty.
 
 Then Wave 2 remaining items, then Wave 3 as capacity allows.
 
@@ -97,6 +93,6 @@ Shipped in foundations PR (partial Wave 1 + quick High wins):
 - [#19](https://github.com/coolsam726/nestweaver/issues/19) — README honesty pass
 - [#20](https://github.com/coolsam726/nestweaver/issues/20) — plaintext password verify disabled in production by default
 
-Still open for Wave 1: #13 tenancy, #14 migrations.
+Still open for Wave 1: _(none — Wave 1 Critical closed)_.
 
-Also shipped: [#11](https://github.com/coolsam726/nestweaver/issues/11) CSRF, [#12](https://github.com/coolsam726/nestweaver/issues/12) session revocation, [#24](https://github.com/coolsam726/nestweaver/issues/24) configurable `cookiePath`.
+Also shipped: [#11](https://github.com/coolsam726/nestweaver/issues/11) CSRF, [#12](https://github.com/coolsam726/nestweaver/issues/12) session revocation, [#24](https://github.com/coolsam726/nestweaver/issues/24) configurable `cookiePath`, [#13](https://github.com/coolsam726/nestweaver/issues/13) company switcher demoted to branding label, [#14](https://github.com/coolsam726/nestweaver/issues/14) ACL migrations + Drizzle fail-closed.

@@ -491,8 +491,11 @@ function createDrizzleRbacStore(dataSource: unknown): LoomRbacStore {
   const roles = schema.loomRoles;
   const users = schema.users;
   if (!permissions || !roles) {
-    // Tables not scaffolded yet — fall back so apps still boot
-    return createNoopRbacStore();
+    throw new Error(
+      'Drizzle schema is missing loomPermissions / loomRoles. ' +
+        'Add the ACL tables to your schema and run migrations (pnpm --filter api db:migrate), ' +
+        'or pass createNoopRbacStore() explicitly for tests.',
+    );
   }
 
   return {

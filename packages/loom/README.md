@@ -152,8 +152,8 @@ Inject tokens by ORM:
 | `auth` | `LoomAuthOptions` | — | Cookie sessions + RBAC when `secret` is set |
 | `allowAnonymousAdmin` | `boolean` | `false` | Opt out of production fail-closed (not recommended) |
 | `api` | `boolean \| { enabled?, prefix? }` | enabled | JSON API at `/api/loom` |
-| `companies` | `LoomCompany[]` | — | Branding display only — switcher is **not interactive** and does **not** enforce tenancy |
-| `currentCompanyId` | `string` | — | Display/branding merge only |
+| `companies` | `LoomCompany[]` | — | Branding lookup only — **no tenant switcher**, no tenancy enforcement |
+| `currentCompanyId` | `string` | — | Display/branding merge only (static topbar label) |
 | `user` | `{ name, email?, avatar?, role? }` | — | Shell profile when auth is off |
 
 Adapter resolution order: custom `adapter` → noop (no resources) → `createLoomAdapter(orm, dataSource)`.
@@ -811,7 +811,7 @@ When auth is enabled, Loom creates an ORM-specific `LoomRbacStore` via `createLo
 | Mongoose | `LoomPermission`, `LoomRole` | Registered at runtime by the store |
 | TypeORM | `LoomPermission`, `LoomRole` entities | Must be in `entities: […]` |
 | Prisma | `LoomPermission`, `LoomRole` | `client.loomPermission` / `loomRole` |
-| Drizzle | `loomPermissions`, `loomRoles` tables | Missing tables → in-memory noop fallback |
+| Drizzle | `loomPermissions`, `loomRoles` tables | Missing schema keys throw (no silent noop) |
 
 **User field:** `roleIds` — TypeORM `simple-array`, Prisma `String[]` (Postgres/Mongo) or `Json` (MySQL/SQLite), Drizzle `text` storing JSON, Mongoose `[String]`.
 
@@ -892,6 +892,8 @@ Runtime CSS: `{basePath}/assets/branding.css`.
 
 ### Companies
 
+`companies` / `currentCompanyId` only control shell branding (static topbar label). They do **not** switch tenants or scope queries. Enforce company isolation in your policies or adapter queries if needed.
+
 ```typescript
 companies: [
   { id: 'acme', name: 'Acme', branding: { primaryColor: '#0ea5e9' } },
@@ -899,6 +901,18 @@ companies: [
 currentCompanyId: 'acme',
 ```
 
+### ACL schema migrations
+
+Nestweaver scaffolds ship migrations so production can create ACL tables without ORM auto-sync:
+
+| ORM | Dev | Production |
+|-----|-----|------------|
+| TypeORM | `synchronize` when not production | `migrationsRun` on boot; or `pnpm --filter api db:migrate` |
+| Prisma | `pnpm --filter api db:push` | `pnpm --filter api db:migrate` (`prisma migrate deploy`) |
+| Drizzle | `pnpm --filter api db:push` | `pnpm --filter api db:migrate` (`drizzle-kit migrate`) |
+| Mongoose | collections created on first write | same |
+
+Upgrading an existing app: add `LoomRole` / `LoomPermission` (or Drizzle `loomRoles` / `loomPermissions`) then run the migrate script for your ORM. Missing Drizzle ACL schema keys fail closed instead of falling back to in-memory RBAC.
 ---
 
 ## Nestweaver scaffolding
@@ -918,9 +932,9 @@ Plus ORM-specific ACL models:
 
 | ORM | Generated / templated |
 |-----|------------------------|
-| TypeORM | `loom-role.entity.ts`, `loom-permission.entity.ts` registered in `DatabaseModule` |
-| Prisma | `LoomRole` / `LoomPermission` in `schema.prisma` |
-| Drizzle | `loomRoles` / `loomPermissions` in `schema.ts` |
+| TypeORM | Entities + `migrations/InitSchema` + `data-source.ts` (`db:migrate`; prod `migrationsRun`) |
+| Prisma | Models + `prisma/migrations` (`db:migrate` / `db:push`) |
+| Drizzle | Schema + `drizzle/0000_init.sql` (`db:migrate` / `db:push`) |
 | Mongoose | Company/User schemas; Role/Permission registered at runtime |
 
 `LoomModule.forRootAsync` is wired with the correct inject token and `auth.seedAdmin` from env. SPA/SSR fallbacks exclude `/admin`.

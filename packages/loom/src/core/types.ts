@@ -186,9 +186,9 @@ export interface LoomModuleOptions {
   dataSource?: unknown;
   adapter?: import('../adapters/adapter.js').LoomAdapter;
   /**
-   * Companies for shell branding display.
-   * The topbar switcher is not interactive yet and does not enforce tenancy
-   * (see roadmap #13). Use policies for record-level company scoping today.
+   * Companies for shell branding display only.
+   * Loom does not enforce multi-tenant isolation; use policies / app queries
+   * for record-level company scoping.
    */
   companies?: LoomCompany[];
   /** Display-only active company id (branding merge); not a tenant switch */
