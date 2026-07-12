@@ -89,6 +89,14 @@ export class LoomViewService {
       return values[values.length - 1];
     });
     Handlebars.registerHelper('not', (value: unknown) => !value);
+    Handlebars.registerHelper('t', (key: unknown, options: { hash?: { fallback?: string }; data?: { root?: Record<string, unknown> } }) => {
+      const root = options?.data?.root;
+      const translate = root?.t;
+      if (typeof translate === 'function') {
+        return translate(String(key ?? ''), options?.hash?.fallback);
+      }
+      return options?.hash?.fallback ?? String(key ?? '');
+    });
     Handlebars.registerHelper('json', (value: unknown) => JSON.stringify(value));
     Handlebars.registerHelper('jsonAttr', (value: unknown) => {
       return JSON.stringify(value)

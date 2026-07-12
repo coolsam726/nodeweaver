@@ -6,6 +6,11 @@ import type {
 } from '../core/types.js';
 import { withDisplayNameFromMeta } from '../core/display-name.js';
 import { resolveSortDirection, resolveSortField } from '../core/list-query.js';
+import {
+  softDeleteClear,
+  softDeleteField,
+  softDeleteStamp,
+} from '../core/soft-delete.js';
 
 export interface LoomAdapter {
   readonly kind: OrmKind;
@@ -27,6 +32,8 @@ export interface LoomAdapter {
     data: Record<string, unknown>,
   ): Promise<Record<string, unknown>>;
   delete(meta: ResourceMeta, id: string): Promise<void>;
+  /** Clear soft-delete marker when resource enables softDelete */
+  restore?(meta: ResourceMeta, id: string): Promise<Record<string, unknown>>;
 }
 
 export interface DrizzleLoomDataSource {
@@ -67,6 +74,9 @@ export function createNoopAdapter(): LoomAdapter {
     delete: async () => {
       throw new Error('No ORM configured');
     },
+    restore: async () => {
+      throw new Error('No ORM configured');
+    },
   };
 }
 
@@ -102,6 +112,7 @@ export function createTypeOrmAdapter(dataSource: unknown): LoomAdapter {
     create: (meta, data) => createTypeOrm(source, meta, data),
     update: (meta, id, data) => updateTypeOrm(source, meta, id, data),
     delete: (meta, id) => deleteTypeOrm(source, meta, id),
+    restore: (meta, id) => restoreTypeOrm(source, meta, id),
   };
 }
 
@@ -117,6 +128,7 @@ export function createPrismaAdapter(client: unknown): LoomAdapter {
     create: (meta, data) => createPrisma(prisma, meta, data),
     update: (meta, id, data) => updatePrisma(prisma, meta, id, data),
     delete: (meta, id) => deletePrisma(prisma, meta, id),
+    restore: (meta, id) => restorePrisma(prisma, meta, id),
   };
 }
 
@@ -130,6 +142,7 @@ export function createDrizzleAdapter(dataSource: DrizzleLoomDataSource): LoomAda
     create: (meta, data) => createDrizzle(dataSource, meta, data),
     update: (meta, id, data) => updateDrizzle(dataSource, meta, id, data),
     delete: (meta, id) => deleteDrizzle(dataSource, meta, id),
+    restore: (meta, id) => restoreDrizzle(dataSource, meta, id),
   };
 }
 
@@ -145,6 +158,7 @@ export function createMongooseAdapter(connection: unknown): LoomAdapter {
     create: (meta, data) => createMongoose(conn, meta, data),
     update: (meta, id, data) => updateMongoose(conn, meta, id, data),
     delete: (meta, id) => deleteMongoose(conn, meta, id),
+    restore: (meta, id) => restoreMongoose(conn, meta, id),
   };
 }
 
@@ -241,9 +255,10 @@ async function listTypeOrm(
   const repo = dataSource.getRepository(meta.model);
   const orderField = resolveSortField(meta, query);
   const direction = resolveSortDirection(query, meta).toUpperCase();
+  const soft = await typeOrmSoftDeleteWhere(meta, query);
   const where = mergeTypeOrmWhere(
     await buildTypeOrmSearch(meta, query.search),
-    query.scope?.equals,
+    { ...(query.scope?.equals ?? {}), ...soft },
   );
   const [items, total] = await repo.findAndCount({
     where,
@@ -327,10 +342,45 @@ async function deleteTypeOrm(
   meta: ResourceMeta,
   id: string,
 ): Promise<void> {
+  const stamp = softDeleteStamp(meta);
+  if (stamp) {
+    await updateTypeOrm(dataSource, meta, id, stamp);
+    return;
+  }
   const repo = dataSource.getRepository(meta.model);
   const existing = await repo.findOne({ where: { id: coerceId(id) } });
   if (!existing) throw new Error('Record not found');
   await repo.remove(existing);
+}
+
+async function restoreTypeOrm(
+  dataSource: { getRepository: (entity: unknown) => TypeOrmRepository },
+  meta: ResourceMeta,
+  id: string,
+): Promise<Record<string, unknown>> {
+  const clear = softDeleteClear(meta);
+  if (!clear) throw new Error('Soft delete is not enabled for this resource');
+  return updateTypeOrm(dataSource, meta, id, clear);
+}
+
+async function typeOrmSoftDeleteWhere(
+  meta: ResourceMeta,
+  query: ListQuery,
+): Promise<Record<string, unknown>> {
+  const field = softDeleteField(meta);
+  if (!field || query.trashed === 'with') return {};
+  try {
+    const { IsNull, Not } = await import('typeorm');
+    if (query.trashed === 'only' || query.trashed === true) {
+      return { [field]: Not(IsNull()) };
+    }
+    return { [field]: IsNull() };
+  } catch {
+    if (query.trashed === 'only' || query.trashed === true) {
+      return { [field]: { $loomTrashed: true } };
+    }
+    return { [field]: null };
+  }
 }
 
 async function buildTypeOrmSearch(
@@ -358,7 +408,11 @@ async function listPrisma(
   query: ListQuery,
 ): Promise<PaginatedResult> {
   const delegate = getPrismaDelegate(client, meta);
-  const where = mergePrismaWhere(buildPrismaSearch(meta, query.search), query.scope?.equals);
+  const soft = prismaSoftDeleteWhere(meta, query);
+  const where = mergePrismaWhere(buildPrismaSearch(meta, query.search), {
+    ...(query.scope?.equals ?? {}),
+    ...soft,
+  });
   const orderField = resolveSortField(meta, query);
   const direction = resolveSortDirection(query, meta);
   const skip = (query.page - 1) * query.perPage;
@@ -438,8 +492,35 @@ async function deletePrisma(
   meta: ResourceMeta,
   id: string,
 ): Promise<void> {
+  const stamp = softDeleteStamp(meta);
+  if (stamp) {
+    await updatePrisma(client, meta, id, stamp);
+    return;
+  }
   const delegate = getPrismaDelegate(client, meta);
   await delegate.delete({ where: { id: coerceId(id) } });
+}
+
+async function restorePrisma(
+  client: Record<string, PrismaDelegate>,
+  meta: ResourceMeta,
+  id: string,
+): Promise<Record<string, unknown>> {
+  const clear = softDeleteClear(meta);
+  if (!clear) throw new Error('Soft delete is not enabled for this resource');
+  return updatePrisma(client, meta, id, clear);
+}
+
+function prismaSoftDeleteWhere(
+  meta: ResourceMeta,
+  query: ListQuery,
+): Record<string, unknown> {
+  const field = softDeleteField(meta);
+  if (!field || query.trashed === 'with') return {};
+  if (query.trashed === 'only' || query.trashed === true) {
+    return { [field]: { not: null } };
+  }
+  return { [field]: null };
 }
 
 async function listDrizzle(
@@ -463,6 +544,20 @@ async function listDrizzle(
   const scopeClauses = Object.entries(scopeEquals).map(([key, value]) =>
     drizzle.eq(tableColumns[key], value),
   );
+  const softField = softDeleteField(meta);
+  if (softField && query.trashed !== 'with') {
+    const col = tableColumns[softField];
+    if (col) {
+      if (query.trashed === 'only' || query.trashed === true) {
+        const isNotNull = (drizzle as { isNotNull?: (c: unknown) => unknown }).isNotNull;
+        if (isNotNull) scopeClauses.push(isNotNull(col));
+      } else {
+        const isNull = (drizzle as { isNull?: (c: unknown) => unknown }).isNull;
+        if (isNull) scopeClauses.push(isNull(col));
+        else scopeClauses.push(drizzle.eq(col, null));
+      }
+    }
+  }
   const drizzleAnd = drizzle as DrizzleOperators & {
     and: (...conditions: unknown[]) => unknown;
   };
@@ -639,6 +734,11 @@ async function deleteDrizzle(
   meta: ResourceMeta,
   id: string,
 ): Promise<void> {
+  const stamp = softDeleteStamp(meta);
+  if (stamp) {
+    await updateDrizzle(dataSource, meta, id, stamp);
+    return;
+  }
   const { db, schema } = dataSource;
   const table = resolveDrizzleTable(schema, meta);
   const drizzle = (await import('drizzle-orm')) as DrizzleOperators;
@@ -647,16 +747,32 @@ async function deleteDrizzle(
   await queryDb.delete(table).where(drizzle.eq(tableColumns.id, coerceId(id)));
 }
 
+async function restoreDrizzle(
+  dataSource: DrizzleLoomDataSource,
+  meta: ResourceMeta,
+  id: string,
+): Promise<Record<string, unknown>> {
+  const clear = softDeleteClear(meta);
+  if (!clear) throw new Error('Soft delete is not enabled for this resource');
+  return updateDrizzle(dataSource, meta, id, clear);
+}
+
 async function listMongoose(
   connection: MongooseConnection,
   meta: ResourceMeta,
   query: ListQuery,
 ): Promise<PaginatedResult> {
   const model = connection.model(modelKey(meta));
-  const filter = {
-    ...buildMongoSearch(meta, query.search),
-    ...(query.scope?.equals ?? {}),
-  };
+  const parts: Record<string, unknown>[] = [];
+  const search = buildMongoSearch(meta, query.search);
+  if (Object.keys(search).length > 0) parts.push(search);
+  if (query.scope?.equals && Object.keys(query.scope.equals).length > 0) {
+    parts.push({ ...query.scope.equals });
+  }
+  const soft = mongooseSoftDeleteWhere(meta, query);
+  if (Object.keys(soft).length > 0) parts.push(soft);
+  const filter =
+    parts.length === 0 ? {} : parts.length === 1 ? parts[0]! : { $and: parts };
   const sortField = resolveSortField(meta, query, 'createdAt');
   const direction = resolveSortDirection(query, meta) === 'asc' ? 1 : -1;
   const skip = (query.page - 1) * query.perPage;
@@ -731,8 +847,37 @@ async function deleteMongoose(
   id: string,
 ): Promise<void> {
   assertMongoId(id);
+  const stamp = softDeleteStamp(meta);
+  if (stamp) {
+    await updateMongoose(connection, meta, id, stamp);
+    return;
+  }
   const model = connection.model(modelKey(meta));
   await model.findByIdAndDelete(id);
+}
+
+async function restoreMongoose(
+  connection: MongooseConnection,
+  meta: ResourceMeta,
+  id: string,
+): Promise<Record<string, unknown>> {
+  const clear = softDeleteClear(meta);
+  if (!clear) throw new Error('Soft delete is not enabled for this resource');
+  return updateMongoose(connection, meta, id, clear);
+}
+
+function mongooseSoftDeleteWhere(
+  meta: ResourceMeta,
+  query: ListQuery,
+): Record<string, unknown> {
+  const field = softDeleteField(meta);
+  if (!field || query.trashed === 'with') return {};
+  if (query.trashed === 'only' || query.trashed === true) {
+    return { [field]: { $ne: null } };
+  }
+  return {
+    $or: [{ [field]: null }, { [field]: { $exists: false } }],
+  };
 }
 
 function paginate<T>(

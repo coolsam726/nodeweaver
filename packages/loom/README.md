@@ -152,7 +152,8 @@ Inject tokens by ORM:
 | `auth` | `LoomAuthOptions` | — | Cookie sessions + RBAC when `secret` is set |
 | `allowAnonymousAdmin` | `boolean` | `false` | Opt out of production fail-closed (not recommended) |
 | `api` | `boolean \| { enabled?, prefix? }` | enabled | JSON API at `/api/loom` |
-| `observability` | `{ onError? }` | — | Request IDs always set; optional error hook |
+| `observability` | `{ onError?, slowQueryMs? }` | — | Request IDs always set; optional error / slow-query hooks |
+| `locale` / `messages` | `en` / overrides | — | Admin string catalog (`t('auth.signIn')`) |
 | `companies` | `LoomCompany[]` | — | Branding lookup only — **no tenant switcher**, no tenancy enforcement |
 | `currentCompanyId` | `string` | — | Display/branding merge only (static topbar label) |
 | `user` | `{ name, email?, avatar?, role? }` | — | Shell profile when auth is off |
@@ -550,8 +551,20 @@ observability: {
   onError: ({ error, requestId, userId, path, resource, ability }) => {
     logger.warn({ err: error, requestId, userId, path, resource, ability }, 'loom.forbidden');
   },
+  slowQueryMs: 250, // warn when list / relation loads exceed this
 },
 ```
+
+### Soft deletes
+
+```typescript
+export class DealResource extends Resource {
+  static override softDelete = true; // stamps `deletedAt`
+  // or: static softDelete = { field: 'removedAt' };
+}
+```
+
+List excludes trashed rows by default. Use `?trashed=1` (or Trash in the toolbar) and **Restore**. Combobox relation fields no longer preload up to 250 options (search-only); checkboxList / relationTable still preload unless `relation.preload` overrides.
 
 ### `seedAdmin`
 

@@ -323,14 +323,26 @@ export async function buildRelationOptions(
   );
 }
 
+export function shouldPreloadRelation(relation: RelationConfig): boolean {
+  if (typeof relation.preload === 'boolean') return relation.preload;
+  if (relation.kind === 'many2one') return false;
+  const widget = relation.widget ?? 'combobox';
+  return widget === 'checkboxList' || widget === 'relationTable';
+}
+
 export async function buildRelationOptionsForForm(
   adapter: LoomAdapter,
   registry: ResourceRegistry,
   meta: ResourceMeta,
   scopeForResource?: (resourceSlug: string) => LoomQueryScope | undefined,
+  shouldPreload: (relation: RelationConfig) => boolean = shouldPreloadRelation,
 ): Promise<RelationOptionsMap> {
   const out: RelationOptionsMap = {};
   for (const field of relationFields(meta)) {
+    if (!shouldPreload(field.relation)) {
+      out[field.name] = [];
+      continue;
+    }
     out[field.name] = await buildRelationOptions(
       adapter,
       registry,

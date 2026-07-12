@@ -87,12 +87,21 @@
                       <a href="{{../basePath}}/{{../resource.slug}}/{{this.id}}/edit" class="px-2 py-1 rounded-md text-body hover:bg-surface-hover">Edit</a>
                     {{/if}}
                   {{/if}}
+                  {{#if @root.trashed}}
+                    {{#if (or (not @root.abilities) @root.abilities.canEdit)}}
+                      <form method="post" action="{{../basePath}}/{{../resource.slug}}/{{this.id}}/restore" class="inline">
+                        {{> csrf}}
+                        <button type="submit" class="px-2 py-1 rounded-md text-fg-brand hover:bg-surface-hover">Restore</button>
+                      </form>
+                    {{/if}}
+                  {{else}}
                   {{#if (or (not @root.abilities) @root.abilities.canDelete)}}
                     <button
                       type="button"
                       class="px-2 py-1 rounded-md text-fg-danger hover:bg-danger-soft"
                       @click="$dispatch('loom-open-confirm', { title: 'Delete record?', message: 'This action cannot be undone.', action: '{{../basePath}}/{{../resource.slug}}/{{this.id}}/delete' })"
                     >Delete</button>
+                  {{/if}}
                   {{/if}}
                 </div>
               </td>

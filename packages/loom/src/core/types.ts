@@ -17,6 +17,13 @@ export interface ListQuery {
   direction?: SortDirection;
   /** Record-level policy scope (equality filters) */
   scope?: import('./policy.js').LoomQueryScope;
+  /**
+   * Soft-delete trash mode (when resource enables softDelete).
+   * - false / omitted: active records only
+   * - 'only' / true: trashed only
+   * - 'with': active + trashed
+   */
+  trashed?: import('./soft-delete.js').TrashedMode;
 }
 
 export interface PaginatedResult<T = Record<string, unknown>> {
@@ -74,6 +81,11 @@ export interface RelationConfig {
    * Set false for open layouts (e.g. permission clusters).
    */
   checkboxFramed?: boolean;
+  /**
+   * Preload options into the form HTML.
+   * Default: false for combobox (search-only), true for checkboxList / relationTable.
+   */
+  preload?: boolean;
 }
 
 export type ColumnSpan = number | 'full';
@@ -167,6 +179,11 @@ export interface ResourceMeta {
   presentation: ResourcePresentation;
   /** Extra permissions declared on the resource (seeded into the catalog) */
   customPermissions: Array<{ name: string; label?: string }>;
+  /**
+   * Soft-delete support. When set, `delete` stamps `deletedAt` (or custom field)
+   * and list excludes trashed rows unless `?trashed=1`.
+   */
+  softDelete?: boolean | import('./soft-delete.js').SoftDeleteConfig;
 }
 
 export interface LoomCompany {
@@ -233,7 +250,16 @@ export interface LoomModuleOptions {
       resource?: string;
       ability?: string;
     }) => void;
+    /** Log relation option / list queries slower than this many ms (default: off) */
+    slowQueryMs?: number;
   };
+  /**
+   * UI locale for admin strings (default `en`).
+   * Apps can pass `messages` to override keys.
+   */
+  locale?: string;
+  /** Partial message catalog overrides merged over the built-in locale. */
+  messages?: Record<string, string>;
 }
 
 export type ResourceClass = {

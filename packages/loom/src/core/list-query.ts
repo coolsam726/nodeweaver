@@ -6,6 +6,7 @@ export interface ListViewQuery {
   direction?: string;
   perPage?: number | string;
   page?: number | string;
+  trashed?: string | boolean;
 }
 
 export interface PaginationLink {
@@ -43,6 +44,7 @@ export function normalizeListQuery(
     search?: string;
     sort?: string;
     direction?: SortDirection;
+    trashed?: string | boolean;
   },
   defaults?: { perPage?: number },
 ): ListQuery {
@@ -50,6 +52,16 @@ export function normalizeListQuery(
   const direction: SortDirection | undefined =
     raw.direction === 'asc' || raw.direction === 'desc' ? raw.direction : undefined;
   const search = typeof raw.search === 'string' ? raw.search.trim() || undefined : undefined;
+  const trashedRaw = raw.trashed;
+  const trashed =
+    trashedRaw === true ||
+    trashedRaw === '1' ||
+    trashedRaw === 'true' ||
+    trashedRaw === 'only'
+      ? ('only' as const)
+      : trashedRaw === 'with' || trashedRaw === 'all'
+        ? ('with' as const)
+        : false;
 
   return {
     page: Math.max(1, Number(raw.page) || 1),
@@ -57,6 +69,7 @@ export function normalizeListQuery(
     search,
     sort,
     direction: sort ? direction : undefined,
+    trashed,
   };
 }
 
@@ -83,6 +96,17 @@ export function buildListQueryString(
 
   const page = Number(merged.page);
   if (page > 1) params.set('page', String(page));
+
+  if (
+    merged.trashed === true ||
+    merged.trashed === '1' ||
+    merged.trashed === 'true' ||
+    merged.trashed === 'only'
+  ) {
+    params.set('trashed', '1');
+  } else if (merged.trashed === 'with' || merged.trashed === 'all') {
+    params.set('trashed', 'with');
+  }
 
   const value = params.toString();
   return value ? `?${value}` : '';

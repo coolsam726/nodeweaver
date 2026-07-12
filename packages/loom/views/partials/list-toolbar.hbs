@@ -17,6 +17,13 @@
   </div>
 
   <div class="flex items-center gap-2 shrink-0">
+    {{#if softDeleteEnabled}}
+      {{#if trashed}}
+        <a href="{{basePath}}/{{resource.slug}}" class="text-xs font-medium text-fg-brand hover:underline whitespace-nowrap">Active</a>
+      {{else}}
+        <a href="{{basePath}}/{{resource.slug}}?trashed=1" class="text-xs font-medium text-body-subtle hover:text-heading whitespace-nowrap">Trash</a>
+      {{/if}}
+    {{/if}}
     <label for="list-per-page" class="text-xs font-medium text-body-subtle whitespace-nowrap">Rows per page</label>
     <select
       id="list-per-page"

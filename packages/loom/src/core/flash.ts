@@ -22,6 +22,11 @@ const FLASH_PRESETS: Record<string, LoomFlash> = {
     title: 'Deleted',
     message: 'The record was removed.',
   },
+  restored: {
+    type: 'success',
+    title: 'Restored',
+    message: 'The record was restored.',
+  },
 };
 
 export function flashFromQuery(

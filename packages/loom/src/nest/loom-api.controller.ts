@@ -214,9 +214,10 @@ export function createLoomApiController(
       @Query('search') search?: string,
       @Query('sort') sort?: string,
       @Query('direction') direction?: SortDirection,
+      @Query('trashed') trashed?: string,
     ) {
       try {
-        const query = normalizeListQuery({ page, perPage, search, sort, direction });
+        const query = normalizeListQuery({ page, perPage, search, sort, direction, trashed });
         const result = await this.loom.list(resource, query);
         const meta = this.loom.meta(resource);
         return {
@@ -284,6 +285,20 @@ export function createLoomApiController(
       try {
         await this.loom.delete(resource, id);
         return { ok: true, id };
+      } catch (error) {
+        throw mapApiError(error);
+      }
+    }
+
+    @Post(':resource/:id/restore')
+    async restore(@Param('resource') resource: string, @Param('id') id: string) {
+      try {
+        const meta = this.loom.meta(resource);
+        const record = await this.loom.restore(resource, id);
+        return {
+          data: this.loom.sanitizeRecord(meta, record),
+          abilities: this.loom.abilitiesFor(resource, record),
+        };
       } catch (error) {
         throw mapApiError(error);
       }

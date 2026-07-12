@@ -1,20 +1,9 @@
 (function () {
   const FLASH_MESSAGES = {
-    created: {
-      type: 'success',
-      title: 'Created',
-      message: 'The record was saved successfully.',
-    },
-    updated: {
-      type: 'success',
-      title: 'Updated',
-      message: 'Your changes have been saved.',
-    },
-    deleted: {
-      type: 'success',
-      title: 'Deleted',
-      message: 'The record was removed.',
-    },
+    created: { type: 'success', title: 'Created', message: 'The record was saved successfully.' },
+    updated: { type: 'success', title: 'Updated', message: 'Your changes have been saved.' },
+    deleted: { type: 'success', title: 'Deleted', message: 'The record was removed.' },
+    restored: { type: 'success', title: 'Restored', message: 'The record was restored.' },
   };
 
   const TOAST_ICONS = {
@@ -1211,6 +1200,43 @@
       resourceSlug: '',
       dialogStack: [],
       currentEmbedUrl: '',
+      _previousFocus: null,
+
+      focusables() {
+        const root = this.$refs.panel;
+        if (!root) return [];
+        return Array.from(
+          root.querySelectorAll(
+            'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])',
+          ),
+        ).filter((el) => !el.hasAttribute('disabled') && el.offsetParent !== null);
+      },
+
+      trapFocus(event) {
+        if (!this.open) return;
+        const items = this.focusables();
+        if (items.length === 0) return;
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      },
+
+      focusDialog() {
+        this.$nextTick(() => {
+          const items = this.focusables();
+          const preferred =
+            this.$refs.body?.querySelector('input,select,textarea,button') ||
+            this.$refs.closeBtn ||
+            items[0];
+          preferred?.focus?.();
+        });
+      },
 
       mountBody(html) {
         if (!this.$refs.body) return;
@@ -1219,6 +1245,7 @@
           Alpine.initTree(this.$refs.body);
         }
         this.bindForm(this.$refs.body);
+        this.focusDialog();
       },
       init() {
         window.addEventListener('mousemove', (e) => {
@@ -1239,6 +1266,9 @@
       },
 
       async openModal(detail) {
+        if (!this.open) {
+          this._previousFocus = document.activeElement;
+        }
         this.confirmMode = false;
         const nextSlug = detail.slug || '';
         const replace = detail.replace === true;
@@ -1277,7 +1307,7 @@
         this.currentEmbedUrl = embedUrl;
         await this.$nextTick();
         try {
-          const res = await fetch(embedUrl);
+          const res = await fetch(embedUrl, { headers: csrfHeaders() });
           const html = await res.text();
           this.mountBody(html);
         } finally {
@@ -1293,7 +1323,7 @@
         _dialogOnResult = stackItem.onResult || null;
         this.loading = true;
         try {
-          const res = await fetch(stackItem.url);
+          const res = await fetch(stackItem.url, { headers: csrfHeaders() });
           this.mountBody(await res.text());
         } finally {
           this.loading = false;
@@ -1302,6 +1332,9 @@
       },
 
       openConfirm(detail) {
+        if (!this.open) {
+          this._previousFocus = document.activeElement;
+        }
         this.confirmMode = true;
         this.open = true;
         this.loading = false;
@@ -1313,6 +1346,7 @@
         this.x = 0;
         this.y = 0;
         document.body.classList.add('overflow-hidden');
+        this.focusDialog();
       },
 
       close() {
@@ -1326,6 +1360,11 @@
           this.$refs.body.innerHTML = '';
         }
         document.body.classList.remove('overflow-hidden');
+        const prev = this._previousFocus;
+        this._previousFocus = null;
+        if (prev && typeof prev.focus === 'function') {
+          prev.focus();
+        }
       },
 
       toggleFullscreen() {

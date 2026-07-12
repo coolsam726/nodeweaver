@@ -81,6 +81,11 @@ export abstract class Resource {
   static recordTitleField = 'name';
   /** Optional record-level policy (instance checks + list scope) */
   static policy?: PolicyClass;
+  /**
+   * Soft-delete: stamp `deletedAt` (or `{ field }`) instead of hard delete.
+   * List excludes trashed rows unless `?trashed=1`.
+   */
+  static softDelete?: boolean | { field?: string };
 
   /** Filament-style form schema */
   static form(_schema: FormSchemaBuilder): FormSchema {
@@ -195,6 +200,7 @@ export abstract class Resource {
       hasExplicitDetail,
       presentation,
       customPermissions: normalizeCustomPermissions(this.slug, this.permissions()),
+      softDelete: this.softDelete,
     };
   }
 
