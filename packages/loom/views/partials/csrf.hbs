@@ -1,3 +1,6 @@
-{{#if csrfToken}}
+{{!-- Use @root so CSRF still resolves inside {{#each}} blocks (e.g. company switcher). --}}
+{{#if @root.csrfToken}}
+<input type="hidden" name="_csrf" value="{{@root.csrfToken}}" />
+{{else}}{{#if csrfToken}}
 <input type="hidden" name="_csrf" value="{{csrfToken}}" />
-{{/if}}
+{{/if}}{{/if}}

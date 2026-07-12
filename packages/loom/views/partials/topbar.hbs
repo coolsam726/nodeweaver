@@ -96,9 +96,9 @@
               {{/if}}
               {{#each companies}}
                 <li>
-                  <form method="post" action="{{../switchCompanyPath}}">
+                  <form method="post" action="{{@root.switchCompanyPath}}">
                     {{> csrf}}
-                    <input type="hidden" name="redirect" value="{{../switchRedirect}}" />
+                    <input type="hidden" name="redirect" value="{{@root.switchRedirect}}" />
                     <input type="hidden" name="companyId" value="{{id}}" />
                     <button type="submit" class="w-full text-left px-3 py-1.5 text-body hover:bg-surface-hover {{#if current}}text-fg-brand font-medium{{/if}}" {{#if current}}aria-current="true"{{/if}}>{{name}}</button>
                   </form>
