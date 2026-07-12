@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
 import type { LoomAdapter } from '../adapters/adapter.js';
 import { recordIdFrom } from '../adapters/adapter.js';
+import { warnLoomDeprecated } from '../core/deprecation.js';
 import {
   buildSessionCookie,
   getRequestCookie,
@@ -481,6 +482,10 @@ export class LoomAuthService implements OnModuleInit {
 
   /** @deprecated use clearSessionCookies */
   clearSessionCookie(): string {
+    warnLoomDeprecated(
+      'clearSessionCookie',
+      'LoomAuthService.clearSessionCookie() is deprecated; use clearSessionCookies() instead.',
+    );
     return this.clearSessionCookies()[0] ?? '';
   }
 

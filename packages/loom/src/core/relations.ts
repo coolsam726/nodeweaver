@@ -1,4 +1,5 @@
 import { computeDisplayName, withDisplayNameFromMeta } from './display-name.js';
+import { warnLoomDeprecated } from './deprecation.js';
 import type { LoomAdapter } from '../adapters/adapter.js';
 import { recordIdFrom } from '../adapters/adapter.js';
 import type { ResourceRegistry } from './registry.js';
@@ -79,6 +80,10 @@ export function relationFields(meta: ResourceMeta): Array<FieldConfig & { relati
 
 /** @deprecated Prefer relationFields */
 export function many2OneFields(meta: ResourceMeta): Array<FieldConfig & { relation: RelationConfig }> {
+  warnLoomDeprecated(
+    'many2OneFields',
+    'many2OneFields() is deprecated; use relationFields() instead.',
+  );
   return relationFields(meta).filter((field) => isMany2OneRelation(field.relation));
 }
 
@@ -111,6 +116,10 @@ export function relationColumns(
 export function many2OneColumns(
   meta: ResourceMeta,
 ): Array<{ name: string; relation: RelationConfig }> {
+  warnLoomDeprecated(
+    'many2OneColumns',
+    'many2OneColumns() is deprecated; use relationColumns() instead.',
+  );
   return relationColumns(meta).filter((item) => isMany2OneRelation(item.relation));
 }
 

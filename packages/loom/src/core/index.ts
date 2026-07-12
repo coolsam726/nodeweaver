@@ -19,6 +19,8 @@ export * from './abilities.js';
 export * from './policy.js';
 export * from './rbac-store.js';
 export * from './assert-options.js';
+export * from './deprecation.js';
+export * from './security-headers.js';
 export * from './login-rate-limit.js';
 export * from './csrf.js';
 export * from './password-reset.js';

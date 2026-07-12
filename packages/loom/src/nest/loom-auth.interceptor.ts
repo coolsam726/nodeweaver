@@ -1,6 +1,7 @@
 import {
   CallHandler,
   ExecutionContext,
+  Inject,
   Injectable,
   NestInterceptor,
 } from '@nestjs/common';
@@ -14,6 +15,12 @@ import {
   resolveOrCreateRequestId,
   runWithRequestContext,
 } from '../core/request-context.js';
+import {
+  applyLoomSecurityHeaders,
+  resolveSecurityHeadersConfig,
+} from '../core/security-headers.js';
+import type { LoomModuleOptions } from '../core/types.js';
+import { LOOM_OPTIONS } from '../core/types.js';
 import { LoomAuthService } from './loom-auth.service.js';
 
 type HttpRequest = {
@@ -38,7 +45,16 @@ type HttpResponse = {
 
 @Injectable()
 export class LoomAuthInterceptor implements NestInterceptor {
-  constructor(private readonly auth: LoomAuthService) {}
+  private readonly securityHeaders: ReturnType<typeof resolveSecurityHeadersConfig>;
+  private readonly branding?: LoomModuleOptions['branding'];
+
+  constructor(
+    private readonly auth: LoomAuthService,
+    @Inject(LOOM_OPTIONS) options: LoomModuleOptions,
+  ) {
+    this.securityHeaders = resolveSecurityHeadersConfig(options.securityHeaders);
+    this.branding = options.branding;
+  }
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const http = context.switchToHttp();
@@ -47,6 +63,9 @@ export class LoomAuthInterceptor implements NestInterceptor {
     const requestId = resolveOrCreateRequestId(req.headers);
     res.setHeader?.('X-Request-Id', requestId);
     res.header?.('X-Request-Id', requestId);
+    if (this.securityHeaders) {
+      applyLoomSecurityHeaders(res, this.securityHeaders, this.branding);
+    }
 
     if (!this.auth.enabled) {
       return new Observable((subscriber) => {

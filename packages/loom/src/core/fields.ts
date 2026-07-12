@@ -1,4 +1,5 @@
 import type { ColumnConfig, ColumnSpan, FieldConfig, FieldType } from './types.js';
+import { warnLoomDeprecated } from './deprecation.js';
 
 abstract class Configurable<T> {
   protected config: T;
@@ -378,6 +379,10 @@ export class RelationField extends FieldBase<FieldConfig> {
 
   /** @deprecated Use `manyToOne` */
   to(resource: string, labelField: string): this {
+    warnLoomDeprecated(
+      'RelationField.to',
+      'RelationField.to() is deprecated; use manyToOne() instead.',
+    );
     return this.manyToOne(resource, labelField);
   }
 }

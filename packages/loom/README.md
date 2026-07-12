@@ -153,6 +153,7 @@ Inject tokens by ORM:
 | `allowAnonymousAdmin` | `boolean` | `false` | Opt out of production fail-closed (not recommended) |
 | `api` | `boolean \| { enabled?, prefix? }` | enabled | JSON API at `/api/loom` |
 | `observability` | `{ onError?, slowQueryMs? }` | — | Request IDs always set; optional error / slow-query hooks |
+| `securityHeaders` | `false \| true \| LoomSecurityHeadersConfig` | off | Opt-in CSP + baseline security headers on admin + API |
 | `locale` / `messages` | `en` / overrides | — | Admin string catalog (`t('auth.signIn')`) |
 | `companies` | `LoomCompany[]` | — | Branding overrides (merged by id when tenancy loads live companies) |
 | `currentCompanyId` | `string` | — | Fallback company id when the session has none |
@@ -556,6 +557,24 @@ observability: {
   slowQueryMs: 250, // warn when list / relation loads exceed this
 },
 ```
+
+### Security headers (CSP)
+
+Off by default. Enable when you want Loom to set baseline headers on admin HTML and JSON API responses:
+
+```typescript
+securityHeaders: true,
+// or customize:
+securityHeaders: {
+  contentSecurityPolicyReportOnly: true, // try in report-only first
+  strictTransportSecurity: 'max-age=31536000; includeSubDomains', // HTTPS only
+  headers: { 'X-Frame-Options': false }, // remove a default
+},
+```
+
+Default CSP allows same-origin assets, inline theme boot script, and Alpine from `cdn.jsdelivr.net` — matching the bundled admin UI. For stricter policies, self-host Alpine or add nonces and pass a custom `contentSecurityPolicy` string.
+
+Deprecated APIs log one-time `[Loom deprecation]` warnings at boot or first use. Set `LOOM_DEPRECATION_WARNINGS=0` to silence them in tests.
 
 ### Soft deletes
 

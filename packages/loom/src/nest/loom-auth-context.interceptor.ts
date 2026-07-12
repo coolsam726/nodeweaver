@@ -16,6 +16,10 @@ import {
   resolveOrCreateRequestId,
   runWithRequestContext,
 } from '../core/request-context.js';
+import {
+  applyLoomSecurityHeaders,
+  resolveSecurityHeadersConfig,
+} from '../core/security-headers.js';
 import type { LoomModuleOptions } from '../core/types.js';
 import { LOOM_OPTIONS } from '../core/types.js';
 import { LoomAuthService } from './loom-auth.service.js';
@@ -44,11 +48,15 @@ type HttpResponse = {
  */
 @Injectable()
 export class LoomAuthContextInterceptor implements NestInterceptor {
+  private readonly securityHeaders: ReturnType<typeof resolveSecurityHeadersConfig>;
+
   constructor(
     private readonly auth: LoomAuthService,
     private readonly reflector: Reflector,
     @Inject(LOOM_OPTIONS) private readonly options: LoomModuleOptions,
-  ) {}
+  ) {
+    this.securityHeaders = resolveSecurityHeadersConfig(options.securityHeaders);
+  }
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     if (!isApiEnabled(this.options)) {
@@ -62,6 +70,9 @@ export class LoomAuthContextInterceptor implements NestInterceptor {
     res.setHeader?.('X-Request-Id', requestId);
     if (typeof res.header === 'function') {
       res.header('X-Request-Id', requestId);
+    }
+    if (this.securityHeaders) {
+      applyLoomSecurityHeaders(res, this.securityHeaders, this.options.branding);
     }
 
     const isPublic = this.reflector.getAllAndOverride<boolean>(LOOM_PUBLIC_KEY, [

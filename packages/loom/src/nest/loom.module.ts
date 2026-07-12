@@ -2,7 +2,7 @@ import { DynamicModule, Module, Provider, Type } from '@nestjs/common';
 import type { InjectionToken } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
 import { createNoopAdapter, createLoomAdapter, type LoomAdapter } from '../adapters/adapter.js';
-import { assertLoomProductionAuth } from '../core/assert-options.js';
+import { assertLoomDeprecations, assertLoomProductionAuth } from '../core/assert-options.js';
 import { ResourceRegistry } from '../core/registry.js';
 import { createLoomRbacStore, createNoopRbacStore, LOOM_RBAC } from '../core/rbac-store.js';
 import type { LoomModuleOptions } from '../core/types.js';
@@ -49,6 +49,7 @@ function resolveApiPrefix(options: LoomModuleOptions): string | null {
 
 function normalizeOptions(options: LoomModuleOptions): LoomModuleOptions {
   assertLoomProductionAuth(options);
+  assertLoomDeprecations(options);
   return options;
 }
 
