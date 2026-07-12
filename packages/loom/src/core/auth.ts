@@ -204,10 +204,6 @@ export function buildSessionCookie(
     `Max-Age=${token ? Math.floor(maxAgeMs / 1000) : 0}`,
   ];
   if (secure) parts.push('Secure');
-  if (!token) {
-    parts[0] = `${name}=`;
-    parts.push('Max-Age=0');
-  }
   return parts.join('; ');
 }
 

@@ -6,6 +6,7 @@ import {
   TextColumn,
   TextField,
   InfolistBuilder,
+  type LoomAuthUser,
 } from '../core/index.js';
 
 /**
@@ -21,13 +22,13 @@ export abstract class PermissionResourceBase extends Resource {
   static override navigationSection = 'Users & access';
   static override recordTitleField = 'name';
 
-  static override canCreate(): boolean {
+  static override canCreate(_user: LoomAuthUser): boolean {
     return false;
   }
-  static override canEdit(): boolean {
+  static override canEdit(_user: LoomAuthUser, _record?: Record<string, unknown>): boolean {
     return false;
   }
-  static override canDelete(): boolean {
+  static override canDelete(_user: LoomAuthUser, _record?: Record<string, unknown>): boolean {
     return false;
   }
 
