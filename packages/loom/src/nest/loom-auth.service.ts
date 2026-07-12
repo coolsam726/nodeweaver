@@ -37,8 +37,15 @@ import {
   createLoomRbacStore,
   createNoopRbacStore,
 } from '../core/rbac-store.js';
+import {
+  createPasswordResetStore,
+  type PasswordResetStore,
+} from '../core/password-reset.js';
 import type { LoomModuleOptions } from '../core/types.js';
 import { LOOM_ADAPTER, LOOM_OPTIONS, LOOM_REGISTRY } from '../core/types.js';
+
+const GENERIC_RESET_MESSAGE =
+  'If an account exists for that email, password reset instructions have been sent.';
 
 @Injectable()
 export class LoomAuthService implements OnModuleInit {
@@ -47,6 +54,7 @@ export class LoomAuthService implements OnModuleInit {
   private readonly loginLimiter: LoginRateLimiter | null;
   /** In-memory session versions (also persisted when `sessionVersion` field exists). */
   private readonly sessionVersions = new Map<string, number>();
+  private readonly passwordResets: PasswordResetStore = createPasswordResetStore();
 
   constructor(
     @Inject(LOOM_OPTIONS) private readonly options: LoomModuleOptions,
@@ -99,9 +107,127 @@ export class LoomAuthService implements OnModuleInit {
     const base = (this.options.basePath ?? '/admin').replace(/\/$/, '');
     const path = pathname.split('?')[0] ?? pathname;
     if (path === `${base}/login` || path.endsWith('/login')) return true;
+    if (path === `${base}/forgot-password` || path.endsWith('/forgot-password')) {
+      return true;
+    }
+    if (path === `${base}/reset-password` || path.endsWith('/reset-password')) {
+      return true;
+    }
     if (path.includes('/assets/')) return true;
     if (path === `${base}/logout` || path.endsWith('/logout')) return true;
     return false;
+  }
+
+  get passwordResetEnabled(): boolean {
+    return this.enabled && this.options.auth?.passwordReset !== false;
+  }
+
+  /**
+   * Request a password reset. Always returns a generic message (no email enumeration).
+   * Rate-limited with the same IP+email limiter as login.
+   */
+  async requestPasswordReset(
+    email: string,
+    options?: { ip?: string; resetBaseUrl?: string },
+  ): Promise<{ message: string }> {
+    if (!this.options.auth || !this.passwordResetEnabled) {
+      return { message: GENERIC_RESET_MESSAGE };
+    }
+    const normalized = email.trim().toLowerCase();
+    const key = `${options?.ip ?? 'unknown'}|reset:${normalized || 'empty'}`;
+    this.loginLimiter?.assertAllowed(key);
+
+    if (!normalized) {
+      this.loginLimiter?.recordSuccess(key);
+      return { message: GENERIC_RESET_MESSAGE };
+    }
+
+    try {
+      const emailField = this.options.auth.emailField ?? 'email';
+      const meta = this.userMeta();
+      const record =
+        (await this.adapter.findFirst(meta, { [emailField]: normalized })) ??
+        (await this.findUserByEmailFallback(normalized));
+
+      if (record) {
+        const user = await this.hydrateAuthUser(record);
+        if (user) {
+          const cfg =
+            typeof this.options.auth.passwordReset === 'object'
+              ? this.options.auth.passwordReset
+              : {};
+          const ttl = cfg.tokenTtlMs ?? 60 * 60 * 1000;
+          const token = this.passwordResets.create(user.id, ttl);
+          const base =
+            (cfg.publicBaseUrl ?? options?.resetBaseUrl ?? this.options.basePath ?? '/admin').replace(
+              /\/$/,
+              '',
+            );
+          const resetUrl = `${base}/reset-password?token=${encodeURIComponent(token)}`;
+
+          if (cfg.sendPasswordResetEmail) {
+            await cfg.sendPasswordResetEmail({
+              to: user.email,
+              resetUrl,
+              user,
+            });
+          } else if (process.env.NODE_ENV !== 'production') {
+            this.logger.warn(
+              `Password reset for ${user.email} (no mailer configured): ${resetUrl}`,
+            );
+          }
+        }
+      }
+      this.loginLimiter?.recordSuccess(key);
+    } catch (error) {
+      if (error instanceof LoginRateLimitError) throw error;
+      this.loginLimiter?.recordFailure(key);
+      this.logger.warn(
+        `Password reset request failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+
+    return { message: GENERIC_RESET_MESSAGE };
+  }
+
+  /** Validate a reset token without consuming it (for the reset form). */
+  peekPasswordResetToken(token: string): { userId: string } | null {
+    if (!this.passwordResetEnabled) return null;
+    const entry = this.passwordResets.peek(token.trim());
+    return entry ? { userId: entry.userId } : null;
+  }
+
+  /**
+   * Consume a reset token and set a new password. Revokes existing sessions.
+   */
+  async resetPasswordWithToken(
+    token: string,
+    newPassword: string,
+  ): Promise<{ ok: true } | { ok: false; message: string }> {
+    if (!this.options.auth || !this.passwordResetEnabled) {
+      return { ok: false, message: 'Password reset is not available' };
+    }
+    const password = String(newPassword ?? '');
+    if (password.length < 8) {
+      return { ok: false, message: 'Password must be at least 8 characters' };
+    }
+    const userId = this.passwordResets.consume(token.trim());
+    if (!userId) {
+      return { ok: false, message: 'This reset link is invalid or has expired' };
+    }
+    const passwordField = this.options.auth.passwordField ?? 'password';
+    try {
+      await this.adapter.update(this.userMeta(), userId, {
+        [passwordField]: await hashPassword(password),
+      });
+      await this.bumpSessionVersion(userId);
+      return { ok: true };
+    } catch (error) {
+      this.logger.warn(
+        `Password reset failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return { ok: false, message: 'Could not update password' };
+    }
   }
 
   async resolveUserFromRequest(req: {

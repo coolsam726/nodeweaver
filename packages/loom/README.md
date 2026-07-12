@@ -512,12 +512,31 @@ Auth is enabled when `auth.secret` is set.
 | `csrf` | enabled | Double-submit cookie + `_csrf` / `X-CSRF-Token`; set `false` to disable |
 | `cookiePath` | `/` | Shared path for admin + API cookies |
 | `sessionVersionField` | `sessionVersion` | Bumped on logout/password change to revoke sessions |
+| `passwordReset` | enabled | Forgot/reset flow; set `false` to disable. Provide `sendPasswordResetEmail` to deliver links |
 
 **Production:** registering resources without `auth.secret` throws unless `allowAnonymousAdmin: true`.
 
 CSRF: HTML forms include `{{> csrf}}`; JSON clients must send `X-CSRF-Token` matching the `loom_csrf` cookie (visit any admin/API GET first to receive it).
 
 Sessions include a version (`sv`). Logout and password changes bump the version so old cookies stop working (persisted when the user model has `sessionVersion`; otherwise in-memory per process).
+
+### Password reset
+
+Enabled whenever auth is on (set `passwordReset: false` to hide). Users use `/admin/forgot-password` (or `POST /api/loom/forgot-password`). Tokens are single-use, hashed in memory, and expire after 1 hour by default.
+
+```typescript
+auth: {
+  secret: process.env.LOOM_AUTH_SECRET!,
+  passwordReset: {
+    publicBaseUrl: 'https://app.example.com/admin', // optional absolute links
+    sendPasswordResetEmail: async ({ to, resetUrl, user }) => {
+      await mailer.send({ to, subject: 'Reset your password', text: resetUrl });
+    },
+  },
+}
+```
+
+Without a mailer, non-production logs the reset URL; the UI always shows a generic success message (no email enumeration).
 
 ### `seedAdmin`
 
@@ -689,7 +708,9 @@ export class OrderResource extends Resource {
 ```
 
 - `scopeList` is applied to list queries (`ListQuery.scope`).
+- The same `scopeList` equality filters are enforced on **show / edit / delete** (and the JSON API equivalents) so knowing an ID cannot bypass list scope (IDOR guard). Return `undefined` from `scopeList` for unrestricted users (e.g. admins).
 - Create can stamp `ownerField` with the current user id.
+- Prefer still overriding `view` / `edit` / `delete` with `ownedBy` when you need custom record rules beyond equality filters.
 - API-only domains: register via `auth.policies: { orders: OrderPolicy }`.
 
 ---
@@ -710,6 +731,7 @@ export class OrderResource extends Resource {
 | `POST` | `/:resource/:id` | Update |
 | `POST` | `/:resource/:id/delete` | Delete |
 | `GET`/`POST` | `/login`, `POST /logout` | Auth |
+| `GET`/`POST` | `/forgot-password`, `/reset-password` | Password recovery |
 | `GET` | `/assets/admin.css`, `loom-ui.js`, `branding.css` | Assets |
 
 All paths are under `basePath` (default `/admin`).
@@ -756,6 +778,8 @@ api: { enabled: false }
 |--------|------|--------|
 | `POST` | `/login` | Public — sets session cookie |
 | `POST` | `/logout` | Public |
+| `POST` | `/forgot-password` | Public — request reset email |
+| `POST` | `/reset-password` | Public — `{ token, password }` |
 | `GET` | `/me` | Auth — user, roles, permissions, accessible resources |
 | `GET` | `/resources` | Auth — resource discovery |
 | `GET` | `/:resource` | `viewAny` (+ policy list scope) |

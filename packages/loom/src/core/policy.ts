@@ -109,6 +109,37 @@ export function scopeList(
   return resolved.scopeList?.(user);
 }
 
+/** True when record satisfies every `scope.equals` filter (or scope is empty). */
+export function recordMatchesScope(
+  record: Record<string, unknown>,
+  scope: LoomQueryScope | undefined,
+): boolean {
+  if (!scope?.equals) return true;
+  for (const [key, expected] of Object.entries(scope.equals)) {
+    const actual = record[key];
+    if (actual == null && expected == null) continue;
+    if (String(actual ?? '') !== String(expected ?? '')) return false;
+  }
+  return true;
+}
+
+/**
+ * Enforce list scope on a single record (IDOR guard).
+ * When `scopeList` returns equality filters, show/edit/delete must match them.
+ * Admins that return `undefined` from `scopeList` are unrestricted.
+ */
+export function assertRecordInScope(
+  policy: PolicyClass | undefined,
+  user: LoomAuthUser,
+  slug: string,
+  record: Record<string, unknown>,
+): void {
+  const scope = scopeList(policy, user, slug);
+  if (!recordMatchesScope(record, scope)) {
+    throw new LoomAuthorizationError(`You are not allowed to access this ${slug} record`);
+  }
+}
+
 export function assertPolicy(
   policy: PolicyClass | undefined,
   ability: LoomAbility,
@@ -140,6 +171,12 @@ export function assertPolicy(
   }
   if (!ok) {
     throw new LoomAuthorizationError(`You are not allowed to ${ability} ${slug}`);
+  }
+  if (
+    record &&
+    (ability === 'view' || ability === 'edit' || ability === 'delete')
+  ) {
+    assertRecordInScope(policy, user, slug, record);
   }
 }
 

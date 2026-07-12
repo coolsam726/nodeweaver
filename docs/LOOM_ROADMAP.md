@@ -96,3 +96,7 @@ Shipped in foundations PR (partial Wave 1 + quick High wins):
 Still open for Wave 1: _(none — Wave 1 Critical closed)_.
 
 Also shipped: [#11](https://github.com/coolsam726/nestweaver/issues/11) CSRF, [#12](https://github.com/coolsam726/nestweaver/issues/12) session revocation, [#24](https://github.com/coolsam726/nestweaver/issues/24) configurable `cookiePath`, [#13](https://github.com/coolsam726/nestweaver/issues/13) company switcher demoted to branding label, [#14](https://github.com/coolsam726/nestweaver/issues/14) ACL migrations + Drizzle fail-closed.
+
+Wave 2 High remaining: _(none after #15 + #17)_ — also previously closed from Wave 2 early: #16, #18, #19, #20.
+
+Also shipped in Wave 2 PR: [#15](https://github.com/coolsam726/nestweaver/issues/15) password reset, [#17](https://github.com/coolsam726/nestweaver/issues/17) IDOR guard via `scopeList` on record access.

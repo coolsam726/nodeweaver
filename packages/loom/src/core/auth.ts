@@ -101,6 +101,26 @@ export interface LoomAuthOptions {
    * Bumped on logout and password change; missing field is treated as `0`.
    */
   sessionVersionField?: string;
+  /**
+   * Password reset / forgot-password flow.
+   * Requires `sendPasswordResetEmail` to deliver the link; without it, requests
+   * still succeed with a generic message (token is only logged in non-production).
+   */
+  passwordReset?: false | {
+    /** Token lifetime (default: 1 hour) */
+    tokenTtlMs?: number;
+    /** Absolute or path prefix used when building reset URLs (default: request basePath) */
+    publicBaseUrl?: string;
+    /**
+     * Deliver the reset email. Apps must provide this for end-user recovery.
+     * Loom never sends mail itself.
+     */
+    sendPasswordResetEmail?: (params: {
+      to: string;
+      resetUrl: string;
+      user: LoomAuthUser;
+    }) => void | Promise<void>;
+  };
 }
 
 export interface LoomSessionPayload {

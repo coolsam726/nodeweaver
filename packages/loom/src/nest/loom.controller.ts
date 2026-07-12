@@ -70,6 +70,7 @@ export function createLoomController(basePath = '/admin'): new (...args: never[]
     @Header('Content-Type', 'text/html; charset=utf-8')
     loginForm(
       @Query('error') error?: string,
+      @Query('success') success?: string,
       @Query('redirect') redirectTo?: string,
     ): string {
       if (!this.auth.enabled) {
@@ -83,10 +84,158 @@ export function createLoomController(basePath = '/admin'): new (...args: never[]
           basePath: this.loom.basePath,
           branding: this.loom.branding,
           redirect: redirectTo || this.loom.basePath,
+          flash: flashFromQuery(success, error),
+          csrfToken: currentCsrfToken(),
+          passwordResetEnabled: this.auth.passwordResetEnabled,
+        },
+        { layout: 'bare' },
+      );
+    }
+
+    @Get('forgot-password')
+    @Header('Content-Type', 'text/html; charset=utf-8')
+    forgotPasswordForm(
+      @Query('error') error?: string,
+      @Query('success') success?: string,
+    ): string {
+      if (!this.auth.enabled || !this.auth.passwordResetEnabled) {
+        throw new HttpException('Password reset is not available', HttpStatus.NOT_FOUND);
+      }
+      return this.views.render(
+        'forgot-password',
+        {
+          pageTitle: 'Forgot password',
+          panelTitle: this.loom.panelTitle,
+          basePath: this.loom.basePath,
+          branding: this.loom.branding,
+          flash: flashFromQuery(success, error),
+          csrfToken: currentCsrfToken(),
+        },
+        { layout: 'bare' },
+      );
+    }
+
+    @Post('forgot-password')
+    async forgotPassword(
+      @Req() req: {
+        ip?: string;
+        headers?: Record<string, unknown>;
+        socket?: { remoteAddress?: string };
+        protocol?: string;
+      },
+      @Body() body: { email?: string },
+      @Res() res: {
+        setHeader?: (name: string, value: string) => void;
+        header?: (name: string, value: string) => unknown;
+        redirect?: ((status: number, url: string) => unknown) | ((url: string, status?: number) => unknown);
+        status?: (code: number) => { send?: (body?: unknown) => unknown };
+        send?: (body?: unknown) => unknown;
+        statusCode?: number;
+      },
+    ): Promise<void> {
+      if (!this.auth.enabled || !this.auth.passwordResetEnabled) {
+        throw new HttpException('Password reset is not available', HttpStatus.NOT_FOUND);
+      }
+      try {
+        const host = String(req.headers?.host ?? '').split(',')[0]?.trim();
+        const proto = String(
+          (req.headers?.['x-forwarded-proto'] as string | undefined)?.split(',')[0]?.trim() ||
+            req.protocol ||
+            'http',
+        );
+        const resetBaseUrl = host
+          ? `${proto}://${host}${this.loom.basePath}`
+          : this.loom.basePath;
+        const result = await this.auth.requestPasswordReset(String(body.email ?? ''), {
+          ip: clientIpFromRequest(req),
+          resetBaseUrl,
+        });
+        sendRedirect(
+          res,
+          `${this.loom.basePath}/forgot-password?success=${encodeURIComponent(result.message)}`,
+        );
+      } catch (error) {
+        if (error instanceof LoginRateLimitError) {
+          sendRedirect(
+            res,
+            `${this.loom.basePath}/forgot-password?error=${encodeURIComponent(error.message)}`,
+          );
+          return;
+        }
+        if (error instanceof LoomCsrfError) {
+          sendRedirect(
+            res,
+            `${this.loom.basePath}/forgot-password?error=${encodeURIComponent(error.message)}`,
+          );
+          return;
+        }
+        throw error;
+      }
+    }
+
+    @Get('reset-password')
+    @Header('Content-Type', 'text/html; charset=utf-8')
+    resetPasswordForm(
+      @Query('token') token?: string,
+      @Query('error') error?: string,
+    ): string {
+      if (!this.auth.enabled || !this.auth.passwordResetEnabled) {
+        throw new HttpException('Password reset is not available', HttpStatus.NOT_FOUND);
+      }
+      const raw = String(token ?? '');
+      const valid = Boolean(raw && this.auth.peekPasswordResetToken(raw));
+      return this.views.render(
+        'reset-password',
+        {
+          pageTitle: 'Reset password',
+          panelTitle: this.loom.panelTitle,
+          basePath: this.loom.basePath,
+          branding: this.loom.branding,
+          token: raw,
+          tokenValid: valid,
           flash: flashFromQuery(undefined, error),
           csrfToken: currentCsrfToken(),
         },
         { layout: 'bare' },
+      );
+    }
+
+    @Post('reset-password')
+    async resetPassword(
+      @Body() body: { token?: string; password?: string; passwordConfirm?: string },
+      @Res() res: {
+        setHeader?: (name: string, value: string) => void;
+        header?: (name: string, value: string) => unknown;
+        redirect?: ((status: number, url: string) => unknown) | ((url: string, status?: number) => unknown);
+        status?: (code: number) => { send?: (body?: unknown) => unknown };
+        send?: (body?: unknown) => unknown;
+        statusCode?: number;
+      },
+    ): Promise<void> {
+      if (!this.auth.enabled || !this.auth.passwordResetEnabled) {
+        throw new HttpException('Password reset is not available', HttpStatus.NOT_FOUND);
+      }
+      const token = String(body.token ?? '');
+      const password = String(body.password ?? '');
+      const confirm = String(body.passwordConfirm ?? '');
+      if (password !== confirm) {
+        sendRedirect(
+          res,
+          `${this.loom.basePath}/reset-password?token=${encodeURIComponent(token)}&error=${encodeURIComponent('Passwords do not match')}`,
+        );
+        return;
+      }
+      const result = await this.auth.resetPasswordWithToken(token, password);
+      if (!result.ok) {
+        sendRedirect(
+          res,
+          `${this.loom.basePath}/reset-password?token=${encodeURIComponent(token)}&error=${encodeURIComponent(result.message)}`,
+        );
+        return;
+      }
+      sendRedirect(
+        res,
+        `${this.loom.basePath}/login?success=${encodeURIComponent('Password updated. Sign in with your new password.')}`,
       );
     }
 

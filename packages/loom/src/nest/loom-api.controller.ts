@@ -127,6 +127,65 @@ export function createLoomApiController(
     }
 
     @LoomPublic()
+    @Post('forgot-password')
+    async forgotPassword(
+      @Req() req: {
+        ip?: string;
+        headers?: Record<string, unknown>;
+        socket?: { remoteAddress?: string };
+        protocol?: string;
+      },
+      @Body() body: { email?: string },
+    ) {
+      if (!this.auth.enabled || !this.auth.passwordResetEnabled) {
+        throw new HttpException('Password reset is not available', HttpStatus.NOT_FOUND);
+      }
+      try {
+        const host = String(req.headers?.host ?? '').split(',')[0]?.trim();
+        const proto = String(
+          (req.headers?.['x-forwarded-proto'] as string | undefined)?.split(',')[0]?.trim() ||
+            req.protocol ||
+            'http',
+        );
+        const adminBase = this.loom.basePath;
+        const resetBaseUrl = host ? `${proto}://${host}${adminBase}` : adminBase;
+        return await this.auth.requestPasswordReset(String(body.email ?? ''), {
+          ip: clientIpFromRequest(req),
+          resetBaseUrl,
+        });
+      } catch (error) {
+        if (error instanceof LoginRateLimitError) {
+          throw new HttpException(
+            { message: error.message, retryAfterSec: error.retryAfterSec },
+            HttpStatus.TOO_MANY_REQUESTS,
+          );
+        }
+        if (error instanceof LoomCsrfError) {
+          throw new ForbiddenException(error.message);
+        }
+        throw error;
+      }
+    }
+
+    @LoomPublic()
+    @Post('reset-password')
+    async resetPassword(
+      @Body() body: { token?: string; password?: string },
+    ) {
+      if (!this.auth.enabled || !this.auth.passwordResetEnabled) {
+        throw new HttpException('Password reset is not available', HttpStatus.NOT_FOUND);
+      }
+      const result = await this.auth.resetPasswordWithToken(
+        String(body.token ?? ''),
+        String(body.password ?? ''),
+      );
+      if (!result.ok) {
+        throw new HttpException({ message: result.message }, HttpStatus.BAD_REQUEST);
+      }
+      return { ok: true, message: 'Password updated' };
+    }
+
+    @LoomPublic()
     @Post('logout')
     async logout(
       @Res() res: {
