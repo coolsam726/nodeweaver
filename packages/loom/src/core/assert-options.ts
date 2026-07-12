@@ -1,4 +1,23 @@
+import { warnLoomDeprecated } from './deprecation.js';
 import type { LoomModuleOptions } from './types.js';
+
+/**
+ * Emit one-time warnings for deprecated module options at boot.
+ */
+export function assertLoomDeprecations(options: LoomModuleOptions): void {
+  if (options.title) {
+    warnLoomDeprecated(
+      'options.title',
+      'LoomModuleOptions.title is deprecated; use branding.brandName instead.',
+    );
+  }
+  if (options.auth?.roleField !== undefined) {
+    warnLoomDeprecated(
+      'auth.roleField',
+      'auth.roleField is deprecated; assign roles via RBAC roleIds instead.',
+    );
+  }
+}
 
 /**
  * Refuse to boot an open admin panel in production unless explicitly opted in.

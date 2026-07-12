@@ -1,5 +1,6 @@
 import { SetMetadata } from '@nestjs/common';
 import type { LoomAbility } from '../core/auth.js';
+import { warnLoomDeprecated } from '../core/deprecation.js';
 
 export const LOOM_PUBLIC_KEY = 'loom:public';
 export const LOOM_ABILITY_KEY = 'loom:ability';
@@ -14,8 +15,13 @@ export interface LoomAbilityRequirement {
 }
 
 /** @deprecated Prefer RequirePermission — expands to `${resource}:${ability}` */
-export const RequireLoomAbility = (resource: string, ability: LoomAbility) =>
-  SetMetadata(LOOM_ABILITY_KEY, { resource, ability } satisfies LoomAbilityRequirement);
+export const RequireLoomAbility = (resource: string, ability: LoomAbility) => {
+  warnLoomDeprecated(
+    'RequireLoomAbility',
+    '@RequireLoomAbility is deprecated; use @RequirePermission("resource:ability") instead.',
+  );
+  return SetMetadata(LOOM_ABILITY_KEY, { resource, ability } satisfies LoomAbilityRequirement);
+};
 
 /**
  * Require one or more permission names (any match).

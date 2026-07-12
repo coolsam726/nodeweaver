@@ -267,6 +267,12 @@ export interface LoomModuleOptions {
   locale?: string;
   /** Partial message catalog overrides merged over the built-in locale. */
   messages?: Record<string, string>;
+  /**
+   * Opt-in security headers for admin + JSON API responses.
+   * Default off. Set `true` for Loom-compatible CSP + baseline headers,
+   * or pass a config object to customize.
+   */
+  securityHeaders?: import('./security-headers.js').LoomSecurityHeadersOption;
 }
 
 export type ResourceClass = {
