@@ -478,8 +478,8 @@ List actions are gated by the current user’s abilities (`@root.abilities` in t
 | Soft deletes / restore | Not implemented |
 | Audit log | Not implemented |
 | Bulk action bar | Action API only |
+| CSRF tokens / session revocation | Shipped (cookie double-submit + session version) |
 | Interactive company/tenant switcher | Display chrome only — use [policies](#policies) for scoping |
-| CSRF tokens / session revocation | Roadmap (Wave 1) |
 ---
 
 ## Authentication
@@ -509,8 +509,15 @@ Auth is enabled when `auth.secret` is set.
 | `skipRbacSync` | `false` | Skip permission/role catalog sync |
 | `loginRateLimit` | `{ maxAttempts: 10, windowMs: 15m }` | Set `false` to disable |
 | `allowPlaintextPasswords` | `true` in dev / `false` in prod | Legacy plaintext column verify |
+| `csrf` | enabled | Double-submit cookie + `_csrf` / `X-CSRF-Token`; set `false` to disable |
+| `cookiePath` | `/` | Shared path for admin + API cookies |
+| `sessionVersionField` | `sessionVersion` | Bumped on logout/password change to revoke sessions |
 
 **Production:** registering resources without `auth.secret` throws unless `allowAnonymousAdmin: true`.
+
+CSRF: HTML forms include `{{> csrf}}`; JSON clients must send `X-CSRF-Token` matching the `loom_csrf` cookie (visit any admin/API GET first to receive it).
+
+Sessions include a version (`sv`). Logout and password changes bump the version so old cookies stop working (persisted when the user model has `sessionVersion`; otherwise in-memory per process).
 
 ### `seedAdmin`
 

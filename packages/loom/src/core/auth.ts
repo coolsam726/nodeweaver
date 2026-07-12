@@ -86,15 +86,33 @@ export interface LoomAuthOptions {
    * Default: true outside production, false in production.
    */
   allowPlaintextPasswords?: boolean;
+  /**
+   * CSRF protection for cookie-authenticated mutations (default: enabled).
+   * Set `false` to disable (not recommended).
+   */
+  csrf?: false | { cookieName?: string };
+  /**
+   * Cookie Path for session + CSRF cookies (default: `/`).
+   * Use `/` when admin (`/admin`) and JSON API (`/api/loom`) share the session.
+   */
+  cookiePath?: string;
+  /**
+   * User field holding an integer session version for revocation (default: `sessionVersion`).
+   * Bumped on logout and password change; missing field is treated as `0`.
+   */
+  sessionVersionField?: string;
 }
 
 export interface LoomSessionPayload {
   sub: string;
   exp: number;
+  /** Session version — must match the user's current version */
+  sv?: number;
 }
 
 export interface LoomAuthStore {
   user: LoomAuthUser | null;
+  csrfToken?: string;
 }
 
 export const loomAuthAls = new AsyncLocalStorage<LoomAuthStore>();
@@ -103,8 +121,16 @@ export function currentLoomUser(): LoomAuthUser | null {
   return loomAuthAls.getStore()?.user ?? null;
 }
 
-export function runWithLoomAuth<T>(user: LoomAuthUser | null, fn: () => T): T {
-  return loomAuthAls.run({ user }, fn);
+export function currentCsrfToken(): string {
+  return loomAuthAls.getStore()?.csrfToken ?? '';
+}
+
+export function runWithLoomAuth<T>(
+  user: LoomAuthUser | null,
+  fn: () => T,
+  csrfToken?: string,
+): T {
+  return loomAuthAls.run({ user, csrfToken }, fn);
 }
 
 const SCRYPT_N = 16384;
@@ -181,6 +207,9 @@ export function verifySession(
     const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as LoomSessionPayload;
     if (!payload?.sub || typeof payload.exp !== 'number') return null;
     if (payload.exp < Date.now()) return null;
+    if (payload.sv != null && (!Number.isFinite(payload.sv) || payload.sv < 0)) {
+      return null;
+    }
     return payload;
   } catch {
     return null;
@@ -216,9 +245,10 @@ export function buildSessionCookie(
   const maxAgeMs = options.maxAgeMs ?? 7 * 24 * 60 * 60 * 1000;
   const secure =
     options.secure ?? (process.env.NODE_ENV === 'production');
+  const path = options.cookiePath ?? '/';
   const parts = [
     `${name}=${token ? encodeURIComponent(token) : ''}`,
-    'Path=/',
+    `Path=${path}`,
     'HttpOnly',
     'SameSite=Lax',
     `Max-Age=${token ? Math.floor(maxAgeMs / 1000) : 0}`,

@@ -5,7 +5,11 @@ import {
   NestInterceptor,
 } from '@nestjs/common';
 import { Observable, from, of, switchMap } from 'rxjs';
-import { runWithLoomAuth, type LoomAuthUser } from '../core/auth.js';
+import {
+  runWithLoomAuth,
+  type LoomAuthUser,
+} from '../core/auth.js';
+import { LoomCsrfError } from '../core/csrf.js';
 import { LoomAuthService } from './loom-auth.service.js';
 
 type HttpRequest = {
@@ -14,12 +18,14 @@ type HttpRequest = {
   method?: string;
   headers?: Record<string, unknown>;
   cookies?: Record<string, string>;
+  body?: Record<string, unknown>;
   loomUser?: LoomAuthUser | null;
 };
 
 type HttpResponse = {
   statusCode?: number;
   setHeader?: (name: string, value: string) => void;
+  appendHeader?: (name: string, value: string) => void;
   header?: (name: string, value: string) => HttpResponse;
   redirect?: ((status: number, url: string) => unknown) | ((url: string, status?: number) => unknown);
   status?: (code: number) => HttpResponse;
@@ -44,10 +50,31 @@ export class LoomAuthInterceptor implements NestInterceptor {
       switchMap((user) => {
         req.loomUser = user;
 
+        const method = (req.method ?? 'GET').toUpperCase();
+        const safeMethod =
+          method === 'GET' || method === 'HEAD' || method === 'OPTIONS';
+        const csrf = this.auth.ensureCsrf(req, safeMethod);
+        if (csrf.setCookie) {
+          appendResponseCookie(res, csrf.setCookie);
+        }
+
+        try {
+          this.auth.assertCsrf(req);
+        } catch (error) {
+          if (error instanceof LoomCsrfError) {
+            if (isHtmlMutation(req)) {
+              const loginUrl = `${this.auth.loginPath}?error=${encodeURIComponent(error.message)}`;
+              redirect(res, loginUrl);
+              return of(undefined);
+            }
+            throw error;
+          }
+          throw error;
+        }
+
         if (!user && !this.auth.isPublicPath(pathname)) {
           const loginUrl = `${this.auth.loginPath}?redirect=${encodeURIComponent(pathname)}`;
           redirect(res, loginUrl);
-          // Emit once so Nest's lastValueFrom does not throw EmptyError after redirect.
           return of(undefined);
         }
 
@@ -62,17 +89,26 @@ export class LoomAuthInterceptor implements NestInterceptor {
         }
 
         return new Observable((subscriber) => {
-          runWithLoomAuth(user, () => {
-            next.handle().subscribe({
-              next: (value) => subscriber.next(value),
-              error: (err) => subscriber.error(err),
-              complete: () => subscriber.complete(),
-            });
-          });
+          runWithLoomAuth(
+            user,
+            () => {
+              next.handle().subscribe({
+                next: (value) => subscriber.next(value),
+                error: (err) => subscriber.error(err),
+                complete: () => subscriber.complete(),
+              });
+            },
+            csrf.token,
+          );
         });
       }),
     );
   }
+}
+
+function isHtmlMutation(req: HttpRequest): boolean {
+  const accept = String(req.headers?.accept ?? '');
+  return accept.includes('text/html') || !accept.includes('application/json');
 }
 
 function requestPath(req: HttpRequest): string {
@@ -107,10 +143,42 @@ function redirect(res: HttpResponse, url: string): void {
   }
 }
 
-export function setResponseCookie(res: {
-  setHeader?: (name: string, value: string) => void;
-  header?: (name: string, value: string) => unknown;
-}, cookie: string): void {
+export function setResponseCookie(
+  res: {
+    setHeader?: (name: string, value: string) => void;
+    appendHeader?: (name: string, value: string) => void;
+    header?: (name: string, value: string) => unknown;
+  },
+  cookie: string,
+): void {
+  appendResponseCookie(res, cookie);
+}
+
+export function setResponseCookies(
+  res: {
+    setHeader?: (name: string, value: string) => void;
+    appendHeader?: (name: string, value: string) => void;
+    header?: (name: string, value: string) => unknown;
+  },
+  cookies: string[],
+): void {
+  for (const cookie of cookies) {
+    if (cookie) appendResponseCookie(res, cookie);
+  }
+}
+
+function appendResponseCookie(
+  res: {
+    setHeader?: (name: string, value: string) => void;
+    appendHeader?: (name: string, value: string) => void;
+    header?: (name: string, value: string) => unknown;
+  },
+  cookie: string,
+): void {
+  if (typeof res.appendHeader === 'function') {
+    res.appendHeader('Set-Cookie', cookie);
+    return;
+  }
   if (typeof res.setHeader === 'function') {
     res.setHeader('Set-Cookie', cookie);
     return;

@@ -16,6 +16,7 @@ export const users = mysqlTable('users', {
   email: varchar('email', { length: 255 }).notNull().unique(),
   password: varchar('password', { length: 255 }),
   roleIds: text('role_ids'),
+  sessionVersion: int('session_version').notNull().default(0),
   companyId: int('company_id').references(() => companies.id),
   active: boolean('active').notNull().default(true),
   createdAt: timestamp('created_at').defaultNow().notNull(),

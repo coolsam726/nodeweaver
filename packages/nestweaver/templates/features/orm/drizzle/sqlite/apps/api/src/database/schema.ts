@@ -16,6 +16,7 @@ export const users = sqliteTable('users', {
   email: text('email').notNull().unique(),
   password: text('password'),
   roleIds: text('role_ids'),
+  sessionVersion: integer('session_version').notNull().default(0),
   companyId: integer('company_id').references(() => companies.id),
   active: integer('active', { mode: 'boolean' }).notNull().default(true),
   createdAt: text('created_at').notNull(),

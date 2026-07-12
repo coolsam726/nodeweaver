@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, forwardRef } from '@nestjs/common';
 import { computeDisplayName } from '../core/display-name.js';
 import type { LoomAdapter } from '../adapters/adapter.js';
 import { resolveBranding, type LoomBranding } from '../core/branding.js';
@@ -19,6 +19,7 @@ import {
 import type { ListQuery, ResourceMeta, LoomModuleOptions } from '../core/types.js';
 import { LOOM_ADAPTER, LOOM_OPTIONS, LOOM_REGISTRY } from '../core/types.js';
 import {
+  currentCsrfToken,
   currentLoomUser,
   hashPassword,
   type LoomAuthUser,
@@ -32,6 +33,7 @@ import {
   scopeList,
   type PolicyClass,
 } from '../core/policy.js';
+import { LoomAuthService } from './loom-auth.service.js';
 
 @Injectable()
 export class LoomService {
@@ -39,8 +41,13 @@ export class LoomService {
     @Inject(LOOM_ADAPTER) private readonly adapter: LoomAdapter,
     @Inject(LOOM_REGISTRY) private readonly registry: ResourceRegistry,
     @Inject(LOOM_OPTIONS) private readonly options: LoomModuleOptions,
+    @Inject(forwardRef(() => LoomAuthService))
+    private readonly authService: LoomAuthService,
   ) {}
 
+  get csrfToken(): string {
+    return currentCsrfToken();
+  }
   get basePath(): string {
     return this.options.basePath ?? '/admin';
   }
@@ -159,7 +166,13 @@ export class LoomService {
     const existing = await this.adapter.findOne(this.meta(slug), id);
     this.authorizeRecord(slug, 'edit', existing);
     const writable = await this.pickWritable(slug, data, 'edit');
-    return this.adapter.update(this.meta(slug), id, writable);
+    const updated = await this.adapter.update(this.meta(slug), id, writable);
+    const userSlug = this.options.auth?.userResource ?? 'users';
+    const passwordField = this.options.auth?.passwordField ?? 'password';
+    if (slug === userSlug && writable[passwordField] != null) {
+      await this.authService.bumpSessionVersion(id);
+    }
+    return updated;
   }
 
   async delete(slug: string, id: string) {

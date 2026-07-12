@@ -6,6 +6,7 @@
     action="{{#if (eq mode 'create')}}{{basePath}}/{{resource.slug}}{{else}}{{basePath}}/{{resource.slug}}/{{id}}{{/if}}"
     class="space-y-4"
   >
+    {{> csrf}}
     {{#if embed}}<input type="hidden" name="_loom_embed" value="1" />{{/if}}
     {{#each resource.form.sections}}
       <section class="loom-embed-section">
@@ -80,6 +81,7 @@
     action="{{#if (eq mode 'create')}}{{basePath}}/{{resource.slug}}{{else}}{{basePath}}/{{resource.slug}}/{{id}}{{/if}}"
     class="space-y-6"
   >
+    {{> csrf}}
     {{#each resource.form.sections}}
       <fieldset class="loom-card rounded-xl p-6">
         <legend class="text-sm font-semibold text-heading mb-4 px-1">{{title}}</legend>

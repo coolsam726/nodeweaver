@@ -25,6 +25,9 @@ export class User {
   @Column('simple-array', { nullable: true })
   roleIds?: string[];
 
+  @Column({ default: 0 })
+  sessionVersion!: number;
+
   @Column({ nullable: true })
   companyId?: number;
 

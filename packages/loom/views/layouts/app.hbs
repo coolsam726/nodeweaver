@@ -9,6 +9,9 @@
   {{/if}}
   <link rel="stylesheet" href="{{basePath}}/assets/admin.css" />
   <link rel="stylesheet" href="{{basePath}}/assets/branding.css" />
+  {{#if csrfToken}}
+    <meta name="csrf-token" content="{{csrfToken}}" />
+  {{/if}}
   <script>
     (function () {
       const stored = localStorage.getItem('loom-theme');
