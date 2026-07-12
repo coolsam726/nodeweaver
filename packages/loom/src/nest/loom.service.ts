@@ -16,12 +16,8 @@ import {
   type RelationOption,
   type RelationOptionsMap,
 } from '../core/relations.js';
-<<<<<<< HEAD
-import type { ListQuery, ResourceMeta, LoomModuleOptions, LoomCompany } from '../core/types.js';
-=======
 import { createTranslator } from '../core/i18n.js';
-import type { ListQuery, ResourceMeta, LoomModuleOptions } from '../core/types.js';
->>>>>>> origin/main
+import type { ListQuery, ResourceMeta, LoomModuleOptions, LoomCompany } from '../core/types.js';
 import { LOOM_ADAPTER, LOOM_OPTIONS, LOOM_REGISTRY } from '../core/types.js';
 import {
   currentCsrfToken,
@@ -333,21 +329,15 @@ export class LoomService {
             return { equals: { id: '__loom_denied__' } };
           }
         }
-<<<<<<< HEAD
-      }
-      return this.mergedScope(
-        resourceSlug,
-        user,
-        undefined,
-        this.policyFor(resourceSlug),
-      );
-    });
-=======
-        return scopeList(this.policyFor(resourceSlug), user, resourceSlug);
+        return this.mergedScope(
+          resourceSlug,
+          user,
+          undefined,
+          this.policyFor(resourceSlug),
+        );
       },
       (relation) => shouldPreloadRelation(relation),
     );
->>>>>>> origin/main
   }
 
   async relationLabelsForRecords(

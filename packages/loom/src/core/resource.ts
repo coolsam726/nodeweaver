@@ -82,19 +82,17 @@ export abstract class Resource {
   /** Optional record-level policy (instance checks + list scope) */
   static policy?: PolicyClass;
   /**
-<<<<<<< HEAD
    * Scope this resource to the active company when `auth.tenancy` is enabled.
    * Uses `companyId` unless `companyField` is set.
    */
   static companyScoped?: boolean;
   /** Company FK field (implies company scoping when tenancy is on). */
   static companyField?: string;
-=======
+  /**
    * Soft-delete: stamp `deletedAt` (or `{ field }`) instead of hard delete.
    * List excludes trashed rows unless `?trashed=1`.
    */
   static softDelete?: boolean | { field?: string };
->>>>>>> origin/main
 
   /** Filament-style form schema */
   static form(_schema: FormSchemaBuilder): FormSchema {
@@ -209,12 +207,9 @@ export abstract class Resource {
       hasExplicitDetail,
       presentation,
       customPermissions: normalizeCustomPermissions(this.slug, this.permissions()),
-<<<<<<< HEAD
       companyScoped: this.companyScoped,
       companyField: this.companyField,
-=======
       softDelete: this.softDelete,
->>>>>>> origin/main
     };
   }
 

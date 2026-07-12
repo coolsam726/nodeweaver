@@ -23,9 +23,6 @@ export * from './login-rate-limit.js';
 export * from './csrf.js';
 export * from './password-reset.js';
 export * from './request-context.js';
-<<<<<<< HEAD
 export * from './tenancy.js';
-=======
 export * from './soft-delete.js';
 export * from './i18n.js';
->>>>>>> origin/main
