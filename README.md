@@ -2,7 +2,7 @@
 
 **NestJS fullstack starter + declarative admin.**
 
-Scaffold a NestJS monorepo with your choice of frontend, then optionally enable **Loom** — a production-minded admin panel (resources, RBAC, tenancy, media, JSON API) that ships wired into the same app.
+Scaffold a NestJS monorepo with your choice of frontend and **Loom** included by default — a production-minded admin panel (resources, RBAC, tenancy, media, JSON API) wired into the same app.
 
 Supported frontends: **Nuxt 4**, **Vite + React**, **Vite + Vue**, and **Vite + Svelte**.
 
@@ -12,7 +12,7 @@ Supported frontends: **Nuxt 4**, **Vite + React**, **Vite + Vue**, and **Vite + 
 |--------------------|-----------------|
 | Glue Nest + SPA + Docker by hand | Interactive CLI scaffolds a working monorepo |
 | Roll your own admin CRUD | Loom: declarative resources, auth, company tenancy |
-| Separate “starter” vs “admin kit” stories | One stack: app API + `/admin` + optional JSON API |
+| Separate “starter” vs “admin kit” stories | One stack: app API + `/admin` + JSON API |
 
 **Loom** is the flagship library (`@nestweaver/loom`). **create-nestweaver** is how most people get a working app with Loom already configured.
 
@@ -43,7 +43,7 @@ Use `.` as the directory name to scaffold into the current folder:
 npm create nestweaver@latest .
 ```
 
-You'll be prompted for frontend, database, ORM/ODM (filtered by database), scheduling, queues, HTTP adapter, **admin panel (Loom)**, and Nuxt render mode (SSR/SPA) when applicable.
+You'll be prompted for frontend, database, ORM/ODM (filtered by database), scheduling, queues, HTTP adapter, and Nuxt render mode (SSR/SPA) when applicable. **Loom** (`/admin`, auth/RBAC, JSON API) is always included.
 
 ## After scaffolding
 
@@ -118,7 +118,7 @@ Users then run `npm create nestweaver@latest`.
 | `create-nestweaver` | npm entry for `npm create nestweaver` |
 | [`nestweaver`](packages/nestweaver/README.md) | Core scaffolder, templates, and `weaver` CLI |
 
-Enabling the admin panel during scaffold wires Loom with ORM-matched Role/Permission models, seed auth, local media storage, audit hooks, and an OpenAPI document under `/api/loom/v1`. See the [Loom README](packages/loom/README.md) for the full feature guide.
+Scaffolds always include Loom with ORM-matched Role/Permission models, seed auth, local media storage, audit hooks, and an OpenAPI document under `/api/loom/v1`. See the [Loom README](packages/loom/README.md) for the full feature guide.
 
 **Loom 1.0:** [readiness checklist](docs/LOOM_1_0.md) · [roadmap](docs/LOOM_ROADMAP.md) · [milestone](https://github.com/coolsam726/nestweaver/milestone/1)
 

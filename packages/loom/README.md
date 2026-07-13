@@ -1109,7 +1109,7 @@ Upgrading an existing app: add `LoomRole` / `LoomPermission` (or Drizzle `loomRo
 
 ## Nestweaver scaffolding
 
-When you enable the admin panel in `create-nestweaver` / `weaver`, the scaffold generates:
+`create-nestweaver` / `weaver` always scaffolds Loom. The generated app includes:
 
 ```
 apps/api/src/admin/

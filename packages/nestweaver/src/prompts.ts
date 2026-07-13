@@ -118,12 +118,10 @@ export async function collectOptions(
     default: 'fastify',
   });
 
-  const admin = await confirm({
-    message: 'Add Loom admin panel (@nestweaver/loom at /admin)?',
-    default: true,
-  });
+  // Loom is always part of the Nestweaver stack (auth/RBAC/admin + JSON API).
+  const admin = true;
 
-  if (admin && orm === 'none') {
+  if (orm === 'none') {
     console.log('  Tip: add an ORM to scaffold Companies and Users resources in Loom.');
   }
 
@@ -141,7 +139,7 @@ export async function collectOptions(
       `  Scheduling: ${scheduling ? 'yes' : 'no'}`,
       `  Queues: ${queues ? 'yes' : 'no'}`,
       `  HTTP: ${httpAdapter}`,
-      `  Admin: ${admin ? 'yes' : 'no'}`,
+      '  Admin: Loom (/admin)',
     ]
       .filter(Boolean)
       .join('\n'),

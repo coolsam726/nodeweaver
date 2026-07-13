@@ -2,7 +2,7 @@
 
 Core scaffolder used by `create-nestweaver` and the `weaver` binary.
 
-Nestweaver scaffolds **NestJS + frontend** monorepos. When you enable the admin panel, it wires **[Loom](../loom/README.md)** — declarative resources, auth/RBAC, tenancy, media, and a versioned JSON API — into the same app.
+Nestweaver scaffolds **NestJS + frontend** monorepos with **[Loom](../loom/README.md)** included by default — declarative admin, auth/RBAC, tenancy, media, and a versioned JSON API in the same app.
 
 ## Usage
 
@@ -22,7 +22,7 @@ import { runCreate, collectOptions, scaffoldProject } from 'nestweaver';
 
 ## Admin panel (Loom)
 
-When you enable the admin panel during prompts, Nestweaver scaffolds a full Loom setup:
+Every scaffold includes a full Loom setup:
 
 - `apps/api/src/admin/loom-admin.module.ts` — `LoomModule.forRootAsync` with sync `basePath` / `api` + ORM inject + auth
 

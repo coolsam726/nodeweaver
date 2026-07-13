@@ -29,7 +29,7 @@ Target: [milestone](https://github.com/coolsam726/nestweaver/milestone/1) (~2026
 1. Confirm `pnpm test` green on `main`.
 2. Bump versions in `packages/loom`, `packages/nestweaver`, `packages/create-nestweaver` (keep in sync).
 3. Tag `v1.0.0` and create a GitHub Release (triggers Publish workflow).
-4. Verify `npm create nestweaver@latest` with admin enabled boots `/admin`.
+4. Verify `npm create nestweaver@latest` boots `/admin` (Loom is always scaffolded).
 5. Announce: Loom is the NestJS admin; Nestweaver is how you start.
 
 ## Post-1.0 (not blockers)
