@@ -31,7 +31,9 @@ import {
   recordsToJson,
   type ExportFormat,
 } from '../core/export.js';
-import { canExport } from '../core/list-actions.js';
+import { canExport, canImport } from '../core/list-actions.js';
+import { filtersToEquals, resolveGroupByField } from '../core/list-filters.js';
+import { parseImportCsv } from '../core/import.js';
 import type { ListQuery, ResourceMeta, LoomModuleOptions, LoomCompany } from '../core/types.js';
 import { LOOM_ADAPTER, LOOM_OPTIONS, LOOM_REGISTRY, LOOM_STORAGE } from '../core/types.js';
 import {
@@ -51,6 +53,7 @@ import {
 import {
   LoomAuthorizationError,
   assertCan,
+  can,
   isAdmin,
 } from '../core/abilities.js';
 import {
@@ -274,11 +277,18 @@ export class LoomService {
     this.authorize(slug, 'viewAny');
     const user = this.authUser();
     const policy = this.policyFor(slug);
+    const meta = this.meta(slug);
+    const filterScope = filtersToEquals(meta, query.filters);
+    const groupField = resolveGroupByField(meta, query.groupBy);
     const scoped = {
       ...query,
-      scope: this.mergedScope(slug, user, query.scope, policy),
+      groupBy: groupField ? query.groupBy : undefined,
+      scope: mergeQueryScopes(
+        filterScope ? { equals: filterScope } : undefined,
+        this.mergedScope(slug, user, query.scope, policy),
+      ),
     };
-    return this.timed('list', slug, () => this.adapter.list(this.meta(slug), scoped));
+    return this.timed('list', slug, () => this.adapter.list(meta, scoped));
   }
 
   async findOne(slug: string, id: string) {
@@ -363,6 +373,94 @@ export class LoomService {
     return { deleted, total: unique.length };
   }
 
+  /**
+   * Dispatch a custom bulk action declared on the resource class.
+   * Built-in `delete` should use {@link bulkDelete}.
+   */
+  async runBulkAction(
+    slug: string,
+    action: string,
+    ids: string[],
+  ): Promise<{ ok: boolean; message?: string; affected?: number }> {
+    const meta = this.meta(slug);
+    const unique = [...new Set(ids.map(String).filter(Boolean))];
+    const actionConfig = meta.actions.find(
+      (item) => item.placement === 'bulk' && item.name === action,
+    );
+    if (actionConfig?.ability) {
+      const ability = actionConfig.ability;
+      if (
+        ability === 'viewAny' ||
+        ability === 'view' ||
+        ability === 'create' ||
+        ability === 'edit' ||
+        ability === 'delete'
+      ) {
+        this.authorize(slug, ability);
+      } else if (this.authEnabled) {
+        const user = this.authUser();
+        if (
+          !user ||
+          !(
+            can(user, `${slug}:${ability}`) ||
+            can(user, `${slug}:*`) ||
+            can(user, '*') ||
+            can(user, `*:${ability}`)
+          )
+        ) {
+          throw new LoomAuthorizationError(`Missing permission ${slug}:${ability}`);
+        }
+      }
+    }
+
+    const inline = meta.bulkHandlers?.[action];
+    if (inline) {
+      const result = await inline(unique, {
+        user: this.authUser(),
+        slug,
+        adapter: this.adapter,
+        dataSource: this.options.dataSource,
+      });
+      return {
+        ok: result?.ok !== false,
+        message: result?.message,
+        affected: result?.affected,
+      };
+    }
+
+    const resourceClass = this.registry.requireClass(slug);
+    if (typeof resourceClass.handleBulkAction !== 'function') {
+      throw new Error(`Unknown bulk action "${action}"`);
+    }
+    const result = await resourceClass.handleBulkAction(action, unique, {
+      user: this.authUser(),
+    });
+    return {
+      ok: result?.ok !== false,
+      message: result?.message,
+      affected: result?.affected,
+    };
+  }
+
+  /** Resolve all matching record ids for “select all in result set” bulk actions. */
+  async listMatchingIds(slug: string, query: ListQuery, limit = 10_000): Promise<string[]> {
+    this.authorize(slug, 'viewAny');
+    const ids: string[] = [];
+    let page = 1;
+    const perPage = 100;
+    while (ids.length < limit) {
+      const result = await this.list(slug, { ...query, page, perPage });
+      for (const item of result.items) {
+        const id = item.id ?? item._id;
+        if (id != null) ids.push(String(id));
+        if (ids.length >= limit) break;
+      }
+      if (page * perPage >= result.total || result.items.length === 0) break;
+      page += 1;
+    }
+    return ids;
+  }
+
   async exportRecords(
     slug: string,
     query: ListQuery,
@@ -434,12 +532,61 @@ export class LoomService {
     }
   }
 
+  authorizeImport(slug: string): void {
+    const user = this.authUser();
+    if (!this.authEnabled) return;
+    const abilities = this.abilitiesFor(slug);
+    if (!canImport(user, this.authEnabled, slug, abilities.canCreate)) {
+      throw new LoomAuthorizationError(`Missing permission to import ${slug}`);
+    }
+  }
+
+  async importRecords(
+    slug: string,
+    csv: string,
+  ): Promise<{ created: number; failed: number; errors: string[] }> {
+    this.authorizeImport(slug);
+    const meta = this.meta(slug);
+    const parsed = parseImportCsv(csv, meta);
+    if (parsed.errors.length && parsed.rows.length === 0) {
+      return { created: 0, failed: 0, errors: parsed.errors };
+    }
+    let created = 0;
+    let failed = 0;
+    const errors = [...parsed.errors];
+    for (let i = 0; i < parsed.rows.length; i += 1) {
+      const row = parsed.rows[i]!;
+      try {
+        await this.createRecord(slug, row);
+        created += 1;
+      } catch (error) {
+        failed += 1;
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        errors.push(`Row ${i + 2}: ${message}`);
+        if (errors.length >= 25) {
+          errors.push('…further errors omitted');
+          break;
+        }
+      }
+    }
+    const user = this.authUser();
+    await emitLoomAudit(this.auditConfig, {
+      action: 'import',
+      resource: slug,
+      userId: user?.id,
+      userEmail: user?.email,
+      requestId: currentRequestContext()?.requestId,
+      meta: { created, failed },
+    });
+    return { created, failed, errors };
+  }
+
   parseExportFormat(value: string | undefined): ExportFormat {
     return parseExportFormat(value);
   }
 
   navigationGroups() {
-    return this.registry.navigationGroups(this.authUser());
+    return this.registry.navigationGroups(this.authUser(), this.options.navigation);
   }
 
   menuContext(currentSlug?: string, pageTitle?: string) {
@@ -448,6 +595,7 @@ export class LoomService {
       this.basePath,
       currentSlug,
       pageTitle,
+      this.options.navigation,
     );
   }
 

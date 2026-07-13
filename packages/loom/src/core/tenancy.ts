@@ -122,3 +122,19 @@ export function membershipCompanyIds(
   }
   return homeCompanyId ? [String(homeCompanyId)] : [];
 }
+
+/**
+ * Default company for tenancy: home `companyId` when it is in the membership
+ * list, otherwise the first membership id.
+ */
+export function resolveDefaultCompanyId(
+  record: Record<string, unknown>,
+  homeCompanyId: string | undefined,
+  membershipField?: string,
+): string | undefined {
+  const allowed = membershipCompanyIds(record, homeCompanyId, membershipField);
+  if (homeCompanyId && allowed.includes(String(homeCompanyId))) {
+    return String(homeCompanyId);
+  }
+  return allowed[0];
+}

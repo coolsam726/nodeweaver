@@ -1,4 +1,10 @@
 import type { ListQuery, PaginatedResult, ResourceMeta, SortDirection } from './types.js';
+import {
+  LIST_ALL_RECORDS_PER_PAGE,
+  LIST_GROUP_FETCH_LIMIT,
+  parseListFilters,
+  type ListFilterChip,
+} from './list-filters.js';
 
 export interface ListViewQuery {
   search?: string;
@@ -7,6 +13,8 @@ export interface ListViewQuery {
   perPage?: number | string;
   page?: number | string;
   trashed?: string | boolean;
+  filters?: string | ListFilterChip[];
+  groupBy?: string;
 }
 
 export interface PaginationLink {
@@ -45,6 +53,8 @@ export function normalizeListQuery(
     sort?: string;
     direction?: SortDirection;
     trashed?: string | boolean;
+    filters?: string | ListFilterChip[];
+    groupBy?: string;
   },
   defaults?: { perPage?: number },
 ): ListQuery {
@@ -63,13 +73,45 @@ export function normalizeListQuery(
         ? ('with' as const)
         : false;
 
+  const filters =
+    typeof raw.filters === 'string'
+      ? parseListFilters(raw.filters)
+      : Array.isArray(raw.filters)
+        ? raw.filters
+        : undefined;
+  const groupBy =
+    typeof raw.groupBy === 'string' && raw.groupBy.trim()
+      ? raw.groupBy.trim()
+      : undefined;
+
+  const perPageRaw = raw.perPage;
+  const wantsAll =
+    perPageRaw === 'all' ||
+    perPageRaw === 'All' ||
+    String(perPageRaw).toLowerCase() === 'all';
+  let perPage = wantsAll
+    ? LIST_ALL_RECORDS_PER_PAGE
+    : Math.min(
+        LIST_ALL_RECORDS_PER_PAGE,
+        Math.max(5, Number(perPageRaw) || defaults?.perPage || 15),
+      );
+  let page = Math.max(1, Number(raw.page) || 1);
+
+  // Grouped lists fetch a capped set and render client-side buckets (no pagination).
+  if (groupBy) {
+    perPage = LIST_GROUP_FETCH_LIMIT;
+    page = 1;
+  }
+
   return {
-    page: Math.max(1, Number(raw.page) || 1),
-    perPage: Math.min(100, Math.max(5, Number(raw.perPage) || defaults?.perPage || 15)),
+    page,
+    perPage,
     search,
     sort,
     direction: sort ? direction : undefined,
     trashed,
+    filters: filters?.length ? filters : undefined,
+    groupBy,
   };
 }
 
@@ -91,8 +133,17 @@ export function buildListQueryString(
     }
   }
 
-  const perPage = Number(merged.perPage);
-  if (perPage && perPage !== 15) params.set('perPage', String(perPage));
+  const perPageRaw = merged.perPage;
+  if (
+    perPageRaw === 'all' ||
+    String(perPageRaw).toLowerCase() === 'all' ||
+    Number(perPageRaw) === LIST_ALL_RECORDS_PER_PAGE
+  ) {
+    params.set('perPage', 'all');
+  } else {
+    const perPage = Number(perPageRaw);
+    if (perPage && perPage !== 15) params.set('perPage', String(perPage));
+  }
 
   const page = Number(merged.page);
   if (page > 1) params.set('page', String(page));
@@ -107,6 +158,17 @@ export function buildListQueryString(
   } else if (merged.trashed === 'with' || merged.trashed === 'all') {
     params.set('trashed', 'with');
   }
+
+  const filters =
+    typeof merged.filters === 'string'
+      ? merged.filters.trim()
+      : Array.isArray(merged.filters) && merged.filters.length > 0
+        ? JSON.stringify(merged.filters)
+        : '';
+  if (filters) params.set('filters', filters);
+
+  const groupBy = merged.groupBy != null ? String(merged.groupBy).trim() : '';
+  if (groupBy) params.set('groupBy', groupBy);
 
   const value = params.toString();
   return value ? `?${value}` : '';

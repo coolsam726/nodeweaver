@@ -22,6 +22,7 @@ import {
 import {
   LOOM_ALL_COMPANIES,
   membershipCompanyIds,
+  resolveDefaultCompanyId,
   tenancyCompanyResource,
   tenancyEnabled,
   tenancyMembershipField,
@@ -450,8 +451,12 @@ export class LoomAuthService implements OnModuleInit {
 
     const maxAgeMs = auth.maxAgeMs ?? 7 * 24 * 60 * 60 * 1000;
     const sv = this.readSessionVersion(record, user.id);
+    // Non-admins always get their default membership company; admins may
+    // start on default company or "all companies" when none is set.
     const sessionCompanyId = this.tenancy
-      ? (user.companyId ?? LOOM_ALL_COMPANIES)
+      ? isAdmin(user)
+        ? (user.companyId ?? LOOM_ALL_COMPANIES)
+        : (user.companyId ?? LOOM_ALL_COMPANIES)
       : undefined;
     const token = signSession(
       {
@@ -658,10 +663,16 @@ export class LoomAuthService implements OnModuleInit {
   ): void {
     if (!this.tenancy) return;
 
+    const membershipField = tenancyMembershipField(this.tenancy);
     const allowed = membershipCompanyIds(
       record,
       user.homeCompanyId,
-      tenancyMembershipField(this.tenancy),
+      membershipField,
+    );
+    const defaultCompany = resolveDefaultCompanyId(
+      record,
+      user.homeCompanyId,
+      membershipField,
     );
 
     if (isAdmin(user)) {
@@ -673,21 +684,21 @@ export class LoomAuthService implements OnModuleInit {
         user.companyId = sessionCompanyId;
         return;
       }
-      // Legacy session without companyId — prefer home, else all
-      user.companyId = user.homeCompanyId;
+      // Prefer explicit default/home company; otherwise leave unscoped ("all")
+      user.companyId = defaultCompany;
       return;
     }
 
-    const preferred =
-      sessionCompanyId && sessionCompanyId !== LOOM_ALL_COMPANIES
-        ? sessionCompanyId
-        : user.homeCompanyId;
-    if (preferred && allowed.includes(preferred)) {
-      user.companyId = preferred;
+    // Non-admins always resolve to a concrete company from memberships.
+    if (
+      sessionCompanyId &&
+      sessionCompanyId !== LOOM_ALL_COMPANIES &&
+      allowed.includes(sessionCompanyId)
+    ) {
+      user.companyId = sessionCompanyId;
       return;
     }
-    // Session/home outside membership → first allowed company (or none)
-    user.companyId = allowed[0];
+    user.companyId = defaultCompany;
   }
 
   private async syncPermissionsAndRoles(): Promise<void> {

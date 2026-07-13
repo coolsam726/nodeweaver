@@ -1,0 +1,64 @@
+{{!-- Context: list row record. List-level fields via @root. --}}
+{{#if @root.recordActions.length}}
+<td class="px-4 py-3 text-right">
+  <div class="inline-flex flex-wrap items-center justify-end gap-1 text-xs">
+    {{#each @root.recordActions}}
+      {{#if (eq type 'view')}}
+        {{#if (eq @root.resource.presentation.detail 'modal')}}
+          <button
+            type="button"
+            class="px-2 py-1 rounded-md text-fg-brand hover:bg-surface-hover"
+            @click="$dispatch('loom-open-dialog', { url: '{{@root.basePath}}/{{@root.resource.slug}}/{{../id}}', title: 'View record', slug: '{{@root.resource.slug}}' })"
+          >{{label}}</button>
+        {{else}}
+          <a href="{{@root.basePath}}/{{@root.resource.slug}}/{{../id}}" class="px-2 py-1 rounded-md text-fg-brand hover:bg-surface-hover">{{label}}</a>
+        {{/if}}
+      {{else}}
+        {{#if (eq type 'edit')}}
+          {{#unless @root.trashed}}
+            {{#if (eq @root.resource.presentation.form 'modal')}}
+              <button
+                type="button"
+                class="px-2 py-1 rounded-md text-body hover:bg-surface-hover"
+                @click="$dispatch('loom-open-dialog', { url: '{{@root.basePath}}/{{@root.resource.slug}}/{{../id}}/edit', title: 'Edit record', slug: '{{@root.resource.slug}}' })"
+              >{{label}}</button>
+            {{else}}
+              <a href="{{@root.basePath}}/{{@root.resource.slug}}/{{../id}}/edit" class="px-2 py-1 rounded-md text-body hover:bg-surface-hover">{{label}}</a>
+            {{/if}}
+          {{/unless}}
+        {{else}}
+          {{#if (eq type 'delete')}}
+            {{#if @root.trashed}}
+              {{#if (or (not @root.abilities) @root.abilities.canEdit)}}
+                <form method="post" action="{{@root.basePath}}/{{@root.resource.slug}}/{{../id}}/restore" class="inline">
+                  {{> csrf}}
+                  <button type="submit" class="px-2 py-1 rounded-md text-fg-brand hover:bg-surface-hover">Restore</button>
+                </form>
+              {{/if}}
+            {{else}}
+              <button
+                type="button"
+                class="px-2 py-1 rounded-md text-fg-danger hover:bg-danger-soft"
+                @click="$dispatch('loom-open-confirm', { variant: 'danger', mode: 'confirm', title: '{{label}}?', message: '{{#if confirm}}{{confirm}}{{else}}This action cannot be undone.{{/if}}', confirmLabel: '{{label}}', action: '{{@root.basePath}}/{{@root.resource.slug}}/{{../id}}/delete' })"
+              >{{label}}</button>
+            {{/if}}
+          {{else}}
+            {{#if (eq method 'POST')}}
+              <button
+                type="button"
+                class="px-2 py-1 rounded-md {{#if (eq color 'danger')}}text-fg-danger hover:bg-danger-soft{{else}}text-body hover:bg-surface-hover{{/if}}"
+                @click="$dispatch('loom-open-confirm', { variant: '{{#if (eq color 'danger')}}danger{{else}}primary{{/if}}', mode: 'confirm', title: '{{label}}?', message: '{{#if confirm}}{{confirm}}{{else}}Continue?{{/if}}', confirmLabel: '{{label}}', action: '{{#if url}}{{url}}{{else}}{{@root.basePath}}/{{@root.resource.slug}}/{{../id}}/{{name}}{{/if}}' })"
+              >{{label}}</button>
+            {{else}}
+              <a
+                href="{{#if url}}{{url}}{{else}}{{@root.basePath}}/{{@root.resource.slug}}/{{../id}}{{/if}}"
+                class="px-2 py-1 rounded-md text-body hover:bg-surface-hover"
+              >{{label}}</a>
+            {{/if}}
+          {{/if}}
+        {{/if}}
+      {{/if}}
+    {{/each}}
+  </div>
+</td>
+{{/if}}

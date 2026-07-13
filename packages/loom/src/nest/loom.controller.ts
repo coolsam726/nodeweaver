@@ -17,6 +17,12 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { recordIdFrom } from '../adapters/adapter.js';
 import { resolveListActions, resourceHasMediaFields } from '../core/list-actions.js';
+import {
+  groupListRecords,
+  listColumnHeaders,
+  resolveGroupByField,
+  LIST_ALL_RECORDS_PER_PAGE,
+} from '../core/list-filters.js';
 import { groupKanbanRecords } from '../core/resource.js';
 import { buildListViews, showListViewSwitcher, type ListViewId, type ListViewQuery } from '../core/list-views.js';
 import { buildPaginationContext, normalizeListQuery } from '../core/list-query.js';
@@ -380,17 +386,19 @@ export function createLoomController(basePath = '/admin'): new (...args: never[]
     async kanban(
       @Param('resource') resource: string,
       @Query('page') page = '1',
-      @Query('perPage') perPage = '15',
+      @Query('perPage') perPage = '100',
       @Query('search') search?: string,
       @Query('sort') sort?: string,
       @Query('direction') direction?: SortDirection,
+      @Query('filters') filters?: string,
+      @Query('groupBy') groupBy?: string,
       @Query('success') success?: string,
       @Query('error') error?: string,
     ): Promise<string> {
       try {
         const meta = this.loom.meta(resource);
         const abilities = this.loom.abilitiesFor(resource);
-        const query = normalizeListQuery({ page, perPage, search, sort, direction });
+        const query = normalizeListQuery({ page, perPage, search, sort, direction, filters, groupBy });
         if (!meta.kanban) {
           const result = await this.loom.list(resource, query);
           const relationLabels = await this.loom.relationLabelsForRecords(meta, result.items);
@@ -404,6 +412,8 @@ export function createLoomController(basePath = '/admin'): new (...args: never[]
             result,
             query,
             relationLabels,
+            listHeaders: listColumnHeaders(meta),
+            listAllPerPage: LIST_ALL_RECORDS_PER_PAGE,
             pagination: buildPaginationContext(this.loom.basePath, resource, query, result),
             flash: flashFromQuery(success, error),
             ...listViewContext(this.loom, meta, 'table', query),
@@ -411,7 +421,10 @@ export function createLoomController(basePath = '/admin'): new (...args: never[]
         }
         const result = await this.loom.list(resource, query);
         const relationLabels = await this.loom.relationLabelsForRecords(meta, result.items);
-        const columns = groupKanbanRecords(result.items, meta.kanban.groupBy);
+        const columns = groupKanbanRecords(result.items, meta.kanban.groupBy, {
+          columnOrder: meta.kanban.columns,
+          sequenceField: meta.kanban.sequenceField,
+        });
         return this.views.render('kanban', await shellContext(this.loom, {
           currentSlug: resource,
           pageTitle: meta.kanban.title ?? meta.label,
@@ -424,6 +437,8 @@ export function createLoomController(basePath = '/admin'): new (...args: never[]
           columns,
           relationLabels,
           query,
+          listHeaders: listColumnHeaders(meta),
+          listAllPerPage: LIST_ALL_RECORDS_PER_PAGE,
           pagination: buildPaginationContext(this.loom.basePath, resource, query, result, 'kanban'),
           flash: flashFromQuery(success, error),
           ...listViewContext(this.loom, meta, 'kanban', query),
@@ -443,13 +458,24 @@ export function createLoomController(basePath = '/admin'): new (...args: never[]
       @Query('sort') sort?: string,
       @Query('direction') direction?: SortDirection,
       @Query('trashed') trashed?: string,
+      @Query('filters') filters?: string,
+      @Query('groupBy') groupBy?: string,
       @Query('success') success?: string,
       @Query('error') error?: string,
     ): Promise<string> {
       try {
         const meta = this.loom.meta(resource);
         const abilities = this.loom.abilitiesFor(resource);
-        const query = normalizeListQuery({ page, perPage, search, sort, direction, trashed });
+        const query = normalizeListQuery({
+          page,
+          perPage,
+          search,
+          sort,
+          direction,
+          trashed,
+          filters,
+          groupBy,
+        });
         const result = await this.loom.list(resource, query);
         const relationLabels = await this.loom.relationLabelsForRecords(meta, result.items);
         const listActions = resolveListActions(
@@ -459,6 +485,13 @@ export function createLoomController(basePath = '/admin'): new (...args: never[]
           this.loom.authEnabled,
           abilities,
         );
+        const groupField = resolveGroupByField(meta, query.groupBy);
+        const groupColumn = groupField
+          ? meta.columns.find((column) => column.name === query.groupBy)
+          : undefined;
+        const groups = groupField
+          ? groupListRecords(result.items, groupField, groupColumn, meta, relationLabels)
+          : undefined;
         return this.views.render('list', await shellContext(this.loom, {
           currentSlug: resource,
           pageTitle: meta.label,
@@ -468,10 +501,16 @@ export function createLoomController(basePath = '/admin'): new (...args: never[]
           abilities,
           result,
           query,
+          groups,
+          groupBy: query.groupBy,
           trashed: query.trashed === 'only',
           softDeleteEnabled: Boolean(meta.softDelete),
           relationLabels,
-          pagination: buildPaginationContext(this.loom.basePath, resource, query, result),
+          listHeaders: listColumnHeaders(meta),
+          listAllPerPage: LIST_ALL_RECORDS_PER_PAGE,
+          pagination: groups
+            ? undefined
+            : buildPaginationContext(this.loom.basePath, resource, query, result),
           flash: flashFromQuery(success, error),
           ...listActions,
           ...listViewContext(this.loom, meta, 'table', query),
@@ -575,6 +614,63 @@ export function createLoomController(basePath = '/admin'): new (...args: never[]
       }
     }
 
+    @Get(':resource/import')
+    @Header('Content-Type', 'text/html; charset=utf-8')
+    async importForm(
+      @Param('resource') resource: string,
+      @Query('embed') embed?: string,
+    ): Promise<string> {
+      try {
+        const meta = this.loom.meta(resource);
+        this.loom.authorizeImport(resource);
+        const context = await shellContext(this.loom, {
+          currentSlug: resource,
+          pageTitle: `Import ${meta.label}`,
+          resource: meta,
+          embed: embed === '1',
+          exportTemplateUrl: `${this.loom.basePath}/${resource}/export?format=csv`,
+        });
+        return this.views.render('import', context, embed === '1' ? { layout: 'bare' } : undefined);
+      } catch (error) {
+        throw mapAuthError(error);
+      }
+    }
+
+    @Post(':resource/import')
+    async importResource(
+      @Param('resource') resource: string,
+      @Body() body: { csv?: string; _loom_embed?: string },
+      @Res() res: {
+        redirect?: (status: number, url: string) => unknown;
+        status?: (code: number) => { json: (body: unknown) => unknown };
+        json?: (body: unknown) => unknown;
+      } = {},
+    ): Promise<unknown> {
+      try {
+        const result = await this.loom.importRecords(resource, String(body.csv ?? ''));
+        if (body._loom_embed === '1') {
+          return res.status?.(200)?.json(result) ?? res.json?.(result);
+        }
+        const params = new URLSearchParams();
+        if (result.failed === 0 && result.created > 0) {
+          params.set('success', `imported-${result.created}`);
+        } else if (result.created > 0) {
+          params.set(
+            'success',
+            `imported-${result.created}-failed-${result.failed}`,
+          );
+        } else {
+          params.set('error', result.errors[0] ?? 'import-failed');
+        }
+        return res.redirect?.(
+          302,
+          `${this.loom.basePath}/${resource}?${params.toString()}`,
+        );
+      } catch (error) {
+        throw mapAuthError(error);
+      }
+    }
+
     @Get(':resource/export')
     async exportResource(
       @Param('resource') resource: string,
@@ -584,6 +680,8 @@ export function createLoomController(basePath = '/admin'): new (...args: never[]
       @Query('sort') sort?: string,
       @Query('direction') direction?: SortDirection,
       @Query('trashed') trashed?: string,
+      @Query('filters') filters?: string,
+      @Query('groupBy') groupBy?: string,
       @Query('format') format?: string,
       @Res() res: {
         setHeader?: (name: string, value: string) => void;
@@ -592,7 +690,16 @@ export function createLoomController(basePath = '/admin'): new (...args: never[]
       } = {},
     ): Promise<void> {
       try {
-        const query = normalizeListQuery({ page, perPage, search, sort, direction, trashed });
+        const query = normalizeListQuery({
+          page,
+          perPage,
+          search,
+          sort,
+          direction,
+          trashed,
+          filters,
+          groupBy,
+        });
         const exported = await this.loom.exportRecords(
           resource,
           query,
@@ -618,16 +725,38 @@ export function createLoomController(basePath = '/admin'): new (...args: never[]
     @Redirect()
     async bulkAction(
       @Param('resource') resource: string,
-      @Body() body: { action?: string; ids?: string | string[] },
+      @Body()
+      body: {
+        action?: string;
+        ids?: string | string[];
+        selectAll?: string;
+        search?: string;
+        sort?: string;
+        direction?: SortDirection;
+        trashed?: string;
+      },
     ): Promise<{ url: string; statusCode: number }> {
       try {
         const action = body.action ?? 'delete';
-        const rawIds = body.ids;
-        const ids = Array.isArray(rawIds)
-          ? rawIds
-          : typeof rawIds === 'string'
-            ? rawIds.split(',').map((part) => part.trim()).filter(Boolean)
-            : [];
+        let ids: string[] = [];
+        if (body.selectAll === '1' || body.selectAll === 'true') {
+          const query = normalizeListQuery({
+            page: '1',
+            perPage: '100',
+            search: body.search,
+            sort: body.sort,
+            direction: body.direction,
+            trashed: body.trashed,
+          });
+          ids = await this.loom.listMatchingIds(resource, query);
+        } else {
+          const rawIds = body.ids;
+          ids = Array.isArray(rawIds)
+            ? rawIds
+            : typeof rawIds === 'string'
+              ? rawIds.split(',').map((part) => part.trim()).filter(Boolean)
+              : [];
+        }
         if (action === 'delete') {
           const result = await this.loom.bulkDelete(resource, ids);
           return {
@@ -635,7 +764,12 @@ export function createLoomController(basePath = '/admin'): new (...args: never[]
             statusCode: 302,
           };
         }
-        throw new HttpException(`Unknown bulk action "${action}"`, HttpStatus.BAD_REQUEST);
+        const result = await this.loom.runBulkAction(resource, action, ids);
+        const message = encodeURIComponent(result.message ?? `bulk-${action}`);
+        return {
+          url: `${this.loom.basePath}/${resource}?success=${message}${result.affected != null ? `&count=${result.affected}` : ''}`,
+          statusCode: 302,
+        };
       } catch (error) {
         const message = encodeURIComponent(
           error instanceof Error ? error.message : 'Bulk action failed',

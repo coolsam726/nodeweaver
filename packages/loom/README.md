@@ -287,9 +287,35 @@ export class CompanyResource extends extendResource(CompanyResourceBase, {
 
 ### Navigation
 
-- Items are grouped by `navigationGroup` (built-in icons for Administration, General, CRM, Settings).
-- `navigationSection` nests items under a secondary topbar menu.
-- With auth enabled, items are filtered by `canAccess` / `canViewAny`.
+- **Primary** sidebar roots come from `navigationGroup` (default `General`).
+- **Secondary** topbar items use `navigationSection` (dropdown) or flat links when section is omitted.
+- `navigationSort` (number, lower first) orders items within a group/section; ties break alphabetically by label.
+- Module-level `navigation` configures group/section **icons** and **sort**:
+
+```typescript
+LoomModule.forRoot({
+  navigation: {
+    groups: [
+      { name: 'CRM', icon: 'users', sort: 10 },
+      { name: 'Administration', icon: 'cog', sort: 90 },
+    ],
+    sections: [
+      { name: 'Pipeline', icon: 'view-columns', sort: 10 },
+      { name: 'People', sort: 20 },
+    ],
+  },
+  resources: [/* … */],
+});
+```
+
+```typescript
+static override navigationGroup = 'CRM';
+static override navigationSection = 'Pipeline';
+static override navigationSort = 10;
+static override icon = 'banknotes';
+```
+
+With auth enabled, items are filtered by `canAccess` / `canViewAny`.
 
 ### Presentation
 
@@ -357,21 +383,25 @@ If `detail()` is omitted, the detail route renders a **readonly form** built fro
 
 ### Kanban
 
+Grouped boards render as **horizontal columns** (one per group value). Use `.columns(...)` for a stable left-to-right stage order (empty columns stay visible).
+
 ```typescript
 static override kanban(kanban: KanbanBuilder) {
   return kanban
     .title('Pipeline')
     .groupBy('stage')
-    .sequence(['lead', 'qualified', 'won', 'lost'])
-    .card('name', 'amount')
-    .fields(TextField.make('name'))
-    .badges(TextColumn.make('stage'))
-    .gridColumns(4)
+    .columns('lead', 'qualified', 'proposal', 'won', 'lost')
+    .card('title', 'amount')       // title + optional subtitle fields
+    .fields('contactId', 'companyId') // extra card field names
     .build();
 }
 ```
 
-Board URL: **`/admin/:resource/kanban`** (not a query string).
+- `.gridColumns(n)` — card mosaic when **ungrouped** only (not stage count).
+- `.sequence('sortOrder')` — sort cards **within** a column.
+- Default kanban list page size is **100** so boards are not truncated at 15 rows.
+
+Board URL: **`/admin/:resource/kanban`**.
 
 ---
 
@@ -482,29 +512,49 @@ Id lists stored as JSON text (Drizzle) or comma/simple-array are normalized via 
 
 ## Actions
 
+Define actions on the resource class. Loom merges them into `meta.actions` and places them by `.header()` / `.row()` / `.bulk()`.
+
+| Method | Placement | UI |
+|--------|-----------|-----|
+| `headerActions()` | Header | Page heading buttons (Create is also the primary create CTA) |
+| `recordActions()` | Row | Per-row Actions column on the table |
+| `bulkActions()` | Bulk | Selection bar when rows are checked |
+
 Built-ins: `CreateAction`, `ViewAction`, `EditAction`, `DeleteAction`, plus helpers `exportAction()` and `bulkDeleteAction()`.
 
-```typescript
-import { Action, CreateAction, exportAction, bulkDeleteAction } from '@nestweaver/loom';
+**Bulk delete** is added automatically when the user `canDelete` and you did not already declare a bulk `delete` action — you do not need to list `bulkDeleteAction()` unless you want to customize its label/confirm.
 
-static override headerActions() {
-  return [CreateAction.make(), exportAction()];
+```typescript
+import { Action, CreateAction, ViewAction, EditAction, DeleteAction, exportAction } from '@nestweaver/loom';
+
+static override permissions() {
+  // Seeded as deals:activate, deals:deactivate (admins still get *)
+  return ['activate', 'deactivate'];
 }
 
 static override bulkActions() {
-  return [bulkDeleteAction(), Action.make('archive').bulk().label('Archive')];
+  return [
+    Action.make('deactivate')
+      .bulk()
+      .label('Mark inactive')
+      .ability('deactivate') // → requires `{slug}:deactivate`
+      .confirm('Mark selected deals inactive?')
+      .handle(async (ids, ctx) => {
+        // ctx: { user, slug, adapter, dataSource }
+        await ctx.adapter.update?.(…);
+        return { ok: true, affected: ids.length };
+      }),
+  ];
 }
 ```
 
-When you omit export/delete helpers, Loom adds defaults when the user can export or delete.
+- Prefer **`.handle(callback)`** on the Action (inline DX). `Resource.handleBulkAction(action, ids)` remains as a fallback.
+- **`.ability('name')`** gates the button and the POST on `{slug}:{name}` (also register via `permissions()` so roles can grant it).
+- Built-in delete uses `canDelete` / `{slug}:delete`.
+- Select all on the page, then **Select all N matching records** to run the bulk action across the filtered result set (capped at 10k ids).
+- With 3+ bulk actions, the selection bar uses an **Actions** dropdown.
 
-List pages render **header** and **bulk** actions, with row checkboxes and a bulk action bar. Export uses `GET {basePath}/{slug}/export?format=csv|json` (respects current list filters).
-
-Modifiers: `label`, `color('primary'|'accent'|'danger'|'gray')`, `icon`, `url`, `confirm`, `method('GET'|'POST')`, `header()` / `row()` / `bulk()`, `link()`.
-
-Custom URLs: use `Action.make('export').header().url('/your/route')` to override built-in paths.
-
-List actions are gated by the current user’s abilities (`@root.abilities` in templates). Export checks `{slug}:export` when auth is enabled (falls back to `viewAny`).
+Modifiers: `label`, `color(...)`, `icon`, `url`, `confirm`, `method('GET'|'POST')`, `ability(...)`, `header()` / `row()` / `bulk()`, `link()`, `handle(...)`.
 
 ### Media uploads
 

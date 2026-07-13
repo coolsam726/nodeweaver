@@ -1,51 +1,201 @@
-<form method="get" class="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-  <div class="relative min-w-0 flex-1 sm:max-w-md">
-    <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-body-subtle" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 15.803 7.5 7.5 0 0015.803 15.803z"/>
-    </svg>
-    <input
-      type="search"
-      name="search"
-      value="{{query.search}}"
-      placeholder="Search records…"
-      class="loom-input pl-9"
-    />
-    {{#if query.sort}}
-      <input type="hidden" name="sort" value="{{query.sort}}" />
-      <input type="hidden" name="direction" value="{{query.direction}}" />
-    {{/if}}
+<div
+  class="px-4 py-3 space-y-3"
+  x-data="loomListToolbar({
+    search: {{jsonAttr query.search}},
+    filters: {{jsonAttr query.filters}},
+    groupBy: {{jsonAttr query.groupBy}},
+    sort: {{jsonAttr query.sort}},
+    direction: {{jsonAttr query.direction}},
+    perPage: {{jsonAttr query.perPage}},
+    trashed: {{jsonAttr query.trashed}},
+    headers: {{#if listHeaders}}{{jsonAttr listHeaders}}{{else}}[]{{/if}},
+    basePath: {{jsonAttr basePath}},
+    slug: {{jsonAttr resource.slug}},
+    view: {{jsonAttr (or currentListView 'table')}},
+    allPerPage: {{jsonAttr (or listAllPerPage 1000)}}
+  })"
+>
+  <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <div
+      class="relative flex-1 min-w-0 bg-neutral-primary border border-default rounded-lg transition-shadow focus-within:ring-2 focus-within:ring-fg-brand focus-within:border-fg-brand"
+      @click.outside="panelOpen = false"
+      @keydown.escape.window="if (panelOpen) panelOpen = false"
+    >
+      <div class="flex items-center flex-wrap gap-1.5 px-2.5 py-1.5 min-h-[40px]">
+        <svg class="w-4 h-4 text-body-subtle shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 15.803 7.5 7.5 0 0015.803 15.803z"/>
+        </svg>
+
+        <template x-for="(chip, i) in chips" :key="i">
+          <span class="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded bg-brand-soft text-fg-brand text-xs font-medium">
+            <span x-text="chip.label" class="max-w-[200px] truncate"></span>
+            <button type="button" @click="removeChip(i)" aria-label="Remove filter" class="ml-0.5 p-0.5 rounded hover:bg-fg-brand/20 transition-colors">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </span>
+        </template>
+
+        <input
+          type="search"
+          x-ref="listSearchInput"
+          x-model="searchInput"
+          @input.debounce.400ms="onSearchChange()"
+          @keydown.escape="clearSearch()"
+          :placeholder="chips.length ? '' : 'Search…'"
+          class="flex-1 min-w-[120px] bg-transparent border-0 px-1 py-1 text-sm text-body placeholder:text-body-subtle focus:outline-none focus:ring-0"
+        />
+
+        <button
+          x-show="chips.length || groupBy"
+          x-cloak
+          type="button"
+          @click="clearAll()"
+          class="text-[10px] text-body-subtle hover:text-fg-brand underline shrink-0 px-1"
+        >clear all</button>
+
+        <button
+          type="button"
+          @click="panelOpen = !panelOpen"
+          :class="panelOpen ? 'bg-brand-soft text-fg-brand border-fg-brand' : 'text-body-subtle hover:text-fg-brand border-default'"
+          class="inline-flex items-center gap-1 px-2 py-1 rounded border text-xs font-medium shrink-0 transition-colors"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z"/>
+          </svg>
+          <span>Filters</span>
+          <svg class="w-3 h-3 transition-transform" :class="{ 'rotate-180': panelOpen }" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/>
+          </svg>
+        </button>
+      </div>
+
+      <div
+        x-show="panelOpen"
+        x-cloak
+        x-transition.opacity.duration.100ms
+        class="absolute left-0 right-0 top-full mt-1 z-30 bg-neutral-primary border border-default rounded-lg shadow-sm grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-default"
+      >
+        <section class="p-3 space-y-1">
+          <header class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-body-subtle">Filter By</header>
+          <template x-for="h in filterableHeaders()" :key="h.name">
+            <div>
+              <button
+                type="button"
+                @click="toggleFilterField(h.name)"
+                class="w-full flex items-center justify-between gap-1 px-2 py-1.5 rounded text-sm text-body hover:bg-neutral-secondary transition-colors"
+              >
+                <span x-text="h.label"></span>
+                <svg class="w-3 h-3 text-body-subtle transition-transform" :class="{ 'rotate-90': openFilterField === h.name }" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/>
+                </svg>
+              </button>
+
+              <div x-show="openFilterField === h.name && h.filter_kind === 'boolean'" class="pl-3 py-1 space-y-1">
+                <button type="button" @click="addBooleanFilter(h, true)" class="w-full text-left px-2 py-1 text-sm text-body rounded hover:bg-neutral-secondary">Yes</button>
+                <button type="button" @click="addBooleanFilter(h, false)" class="w-full text-left px-2 py-1 text-sm text-body rounded hover:bg-neutral-secondary">No</button>
+              </div>
+
+              <div x-show="openFilterField === h.name && h.filter_kind === 'select'" class="pl-3 py-1 space-y-1 max-h-40 overflow-y-auto">
+                <template x-for="opt in (h.options || [])" :key="String(opt.value)">
+                  <button type="button" @click="addSelectFilter(h, opt)" class="w-full text-left px-2 py-1 text-sm text-body rounded hover:bg-neutral-secondary truncate" x-text="opt.label"></button>
+                </template>
+              </div>
+
+              <div x-show="openFilterField === h.name && h.filter_kind === 'm2o'" class="pl-3 py-1 space-y-1">
+                <input
+                  type="search"
+                  placeholder="Search…"
+                  x-model="m2oQuery[h.name]"
+                  @input.debounce.250ms="searchM2o(h)"
+                  @focus="searchM2o(h)"
+                  class="w-full px-2 py-1 text-sm rounded border border-default bg-neutral-primary text-body placeholder:text-body-subtle focus:outline-none focus:ring-1 focus:ring-fg-brand/40 focus:border-fg-brand"
+                />
+                <template x-for="opt in (m2oResults[h.name] || [])" :key="opt.id">
+                  <button type="button" @click="addM2oFilter(h, opt)" class="w-full text-left px-2 py-1 text-sm text-body rounded hover:bg-neutral-secondary truncate">
+                    <span x-text="opt.label"></span>
+                  </button>
+                </template>
+                <template x-if="(m2oResults[h.name] || []).length === 0">
+                  <p class="px-2 py-1 text-[10px] text-body-subtle">Type to search.</p>
+                </template>
+              </div>
+            </div>
+          </template>
+          <template x-if="filterableHeaders().length === 0">
+            <p class="px-2 py-1 text-xs text-body-subtle">No filterable columns.</p>
+          </template>
+        </section>
+
+        <section class="p-3 space-y-1">
+          <header class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-body-subtle">Group By</header>
+          <template x-for="h in groupableHeaders()" :key="h.name">
+            <button
+              type="button"
+              @click="setGroupBy(groupBy === h.name ? null : h.name)"
+              :class="groupBy === h.name ? 'bg-brand-soft text-fg-brand' : 'text-body hover:bg-neutral-secondary'"
+              class="w-full flex items-center justify-between gap-1 px-2 py-1.5 rounded text-sm transition-colors"
+            >
+              <span x-text="h.label"></span>
+              <svg x-show="groupBy === h.name" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+              </svg>
+            </button>
+          </template>
+          <template x-if="groupableHeaders().length === 0">
+            <p class="px-2 py-1 text-xs text-body-subtle">No groupable columns.</p>
+          </template>
+        </section>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+      {{#if softDeleteEnabled}}
+        {{#if trashed}}
+          <a href="{{basePath}}/{{resource.slug}}" class="text-xs font-medium text-fg-brand hover:underline whitespace-nowrap">Active</a>
+        {{else}}
+          <a href="{{basePath}}/{{resource.slug}}?trashed=1" class="text-xs font-medium text-body-subtle hover:text-heading whitespace-nowrap">Trash</a>
+        {{/if}}
+      {{/if}}
+      <label for="list-per-page" class="text-xs font-medium text-body-subtle whitespace-nowrap">Rows</label>
+      <select
+        id="list-per-page"
+        x-model="perPage"
+        @change="reload()"
+        class="loom-select w-auto min-w-[5.5rem]"
+      >
+        <option value="10">10</option>
+        <option value="15">15</option>
+        <option value="20">20</option>
+        <option value="50">50</option>
+        <option value="all">All records</option>
+      </select>
+      <button
+        type="button"
+        class="loom-list-refresh"
+        data-loom-list-refresh
+        title="Refresh (double-click for auto-refresh every 10s)"
+        aria-label="Refresh list"
+      >
+        <svg class="loom-list-refresh__icon h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182"/>
+        </svg>
+      </button>
+    </div>
   </div>
 
-  <div class="flex items-center gap-2 shrink-0">
-    {{#if softDeleteEnabled}}
-      {{#if trashed}}
-        <a href="{{basePath}}/{{resource.slug}}" class="text-xs font-medium text-fg-brand hover:underline whitespace-nowrap">Active</a>
-      {{else}}
-        <a href="{{basePath}}/{{resource.slug}}?trashed=1" class="text-xs font-medium text-body-subtle hover:text-heading whitespace-nowrap">Trash</a>
-      {{/if}}
-    {{/if}}
-    <label for="list-per-page" class="text-xs font-medium text-body-subtle whitespace-nowrap">Rows per page</label>
-    <select
-      id="list-per-page"
-      name="perPage"
-      onchange="this.form.submit()"
-      class="loom-select w-auto min-w-[4.5rem]"
-    >
-      <option value="10" {{#if (eq query.perPage 10)}}selected{{/if}}>10</option>
-      <option value="15" {{#if (eq query.perPage 15)}}selected{{/if}}>15</option>
-      <option value="20" {{#if (eq query.perPage 20)}}selected{{/if}}>20</option>
-      <option value="50" {{#if (eq query.perPage 50)}}selected{{/if}}>50</option>
-    </select>
-    <button
-      type="button"
-      class="loom-list-refresh"
-      data-loom-list-refresh
-      title="Refresh (double-click for auto-refresh every 10s)"
-      aria-label="Refresh list"
-    >
-      <svg class="loom-list-refresh__icon h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182"/>
-      </svg>
-    </button>
-  </div>
-</form>
+  <template x-if="groupBy">
+    <div class="flex items-center gap-2 text-xs text-body-subtle">
+      <span>Grouped by</span>
+      <span class="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded bg-warning-soft text-warning-strong font-medium">
+        <span x-text="groupByLabel()"></span>
+        <button type="button" @click="setGroupBy(null)" aria-label="Clear grouping" class="p-0.5 rounded hover:bg-warning-strong/20">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </span>
+    </div>
+  </template>
+</div>

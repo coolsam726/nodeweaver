@@ -7,6 +7,7 @@ import {
   membershipCompanyIds,
   mergeQueryScopes,
   recordMatchesCompany,
+  resolveDefaultCompanyId,
   resourceCompanyField,
   tenancyEnabled,
   tenancyMembershipField,
@@ -171,6 +172,26 @@ describe('membershipCompanyIds', () => {
     assert.deepEqual(
       membershipCompanyIds({ companyIds: 'b, c' }, 'home', 'companyIds').sort(),
       ['b', 'c'],
+    );
+  });
+});
+
+describe('resolveDefaultCompanyId', () => {
+  it('prefers home company when it is in memberships', () => {
+    assert.equal(
+      resolveDefaultCompanyId({ companyIds: ['b', 'a'] }, 'a', 'companyIds'),
+      'a',
+    );
+  });
+
+  it('falls back to first membership when home is missing or outside list', () => {
+    assert.equal(
+      resolveDefaultCompanyId({ companyIds: ['b', 'c'] }, 'a', 'companyIds'),
+      'b',
+    );
+    assert.equal(
+      resolveDefaultCompanyId({ companyIds: ['b', 'c'] }, undefined, 'companyIds'),
+      'b',
     );
   });
 });

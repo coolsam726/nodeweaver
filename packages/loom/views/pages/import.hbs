@@ -1,0 +1,70 @@
+{{#if embed}}
+  <form
+    id="loom-import-form"
+    data-loom-embed-import
+    method="post"
+    action="{{basePath}}/{{resource.slug}}/import"
+    class="space-y-4"
+  >
+    {{> csrf}}
+    <input type="hidden" name="_loom_embed" value="1" />
+    <p class="text-sm text-body-subtle">
+      Upload a CSV using the same columns as
+      <a href="{{exportTemplateUrl}}" class="text-fg-brand hover:underline">Export</a>.
+      The first row must be column headers (labels or field names).
+    </p>
+    <div>
+      <label class="loom-field__label" for="loom-import-file">CSV file</label>
+      <input
+        id="loom-import-file"
+        type="file"
+        accept=".csv,text/csv"
+        class="mt-1 block w-full text-sm text-body file:mr-3 file:rounded-md file:border-0 file:bg-brand-soft file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-fg-brand"
+        @change="window.LoomUI?.readImportFile?.($event)"
+      />
+    </div>
+    <textarea name="csv" rows="8" class="loom-input font-mono text-xs" placeholder="Or paste CSV here…"></textarea>
+    <div data-loom-dialog-actions>
+      <button
+        type="button"
+        data-loom-dialog-close
+        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border border-default text-body rounded-md hover:bg-surface-hover transition"
+      >Cancel</button>
+      <button
+        type="submit"
+        form="loom-import-form"
+        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white rounded-md bg-fg-brand hover:opacity-90 transition"
+      >Import</button>
+    </div>
+  </form>
+{{else}}
+  <div class="mx-auto max-w-3xl space-y-6">
+    <form
+      id="loom-import-form"
+      method="post"
+      action="{{basePath}}/{{resource.slug}}/import"
+      class="loom-card rounded-xl p-6 space-y-4"
+    >
+      {{> csrf}}
+      <p class="text-sm text-body-subtle">
+        Upload a CSV using the same columns as
+        <a href="{{exportTemplateUrl}}" class="text-fg-brand hover:underline">Export</a>.
+      </p>
+      <div>
+        <label class="loom-field__label" for="loom-import-file-page">CSV file</label>
+        <input
+          id="loom-import-file-page"
+          type="file"
+          accept=".csv,text/csv"
+          class="mt-1 block w-full text-sm text-body file:mr-3 file:rounded-md file:border-0 file:bg-brand-soft file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-fg-brand"
+          onchange="window.LoomUI && window.LoomUI.readImportFile(event)"
+        />
+      </div>
+      <textarea name="csv" rows="12" class="loom-input font-mono text-xs" placeholder="Or paste CSV here…"></textarea>
+      <div class="flex justify-end gap-2">
+        <a href="{{basePath}}/{{resource.slug}}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border border-default text-body rounded-md hover:bg-surface-hover transition">Cancel</a>
+        <button type="submit" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white rounded-md bg-fg-brand hover:opacity-90 transition">Import</button>
+      </div>
+    </form>
+  </div>
+{{/if}}

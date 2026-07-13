@@ -17,6 +17,10 @@ export interface ListQuery {
   direction?: SortDirection;
   /** Record-level policy scope (equality filters) */
   scope?: import('./policy.js').LoomQueryScope;
+  /** Advanced list filter chips (AND equality / relation / boolean). */
+  filters?: import('./list-filters.js').ListFilterChip[];
+  /** Group list rows by this column name (table view). */
+  groupBy?: string;
   /**
    * Soft-delete trash mode (when resource enables softDelete).
    * - false / omitted: active records only
@@ -170,6 +174,8 @@ export interface ResourceMeta {
   model: string | (new (...args: never[]) => unknown);
   navigationGroup?: string;
   navigationSection?: string;
+  /** Lower sorts first within a group/section (default: alphabetical by label). */
+  navigationSort?: number;
   recordTitleField?: string;
   icon?: string;
   fields: FieldConfig[];
@@ -178,6 +184,14 @@ export interface ResourceMeta {
   infolist: InfolistSchema;
   kanban?: KanbanSchema;
   actions: ActionConfig[];
+  /**
+   * Inline bulk handlers from `Action.make(…).bulk().handle(…)`.
+   * Not rendered in templates — used by the bulk dispatcher.
+   */
+  bulkHandlers?: Record<
+    string,
+    import('./actions.js').BulkActionHandler
+  >;
   searchableFields: string[];
   defaultSort?: { field: string; direction: SortDirection };
   hasKanban: boolean;
@@ -300,6 +314,33 @@ export interface LoomModuleOptions {
   storage?: import('./storage.js').LoomStorageOption;
   /** Audit hooks for create/update/delete/restore/bulk/export. */
   audit?: import('./audit.js').LoomAuditOption;
+  /**
+   * Navigation chrome: primary sidebar groups and secondary (topbar) sections.
+   * Resources still set `navigationGroup` / `navigationSection`; this config
+   * supplies icons, sort order, and which names are primary vs secondary.
+   */
+  navigation?: LoomNavigationOptions;
+}
+
+/** Declared primary (sidebar) group or secondary (topbar section) metadata. */
+export interface LoomNavigationGroupConfig {
+  /** Matches `Resource.navigationGroup` or `navigationSection` */
+  name: string;
+  icon?: string;
+  /** Lower sorts first (default: alphabetical) */
+  sort?: number;
+  /**
+   * `primary` — sidebar root (default when omitted for `groups`).
+   * `secondary` — topbar section metadata (also used via `sections`).
+   */
+  placement?: 'primary' | 'secondary';
+}
+
+export interface LoomNavigationOptions {
+  /** Primary sidebar groups (and optional secondary entries with placement). */
+  groups?: LoomNavigationGroupConfig[];
+  /** Topbar section metadata (icons + sort). Equivalent to groups with placement secondary. */
+  sections?: LoomNavigationGroupConfig[];
 }
 
 export type ResourceClass = {
@@ -311,6 +352,19 @@ export type ResourceClass = {
   canCreate?(user: import('./auth.js').LoomAuthUser): boolean;
   canEdit?(user: import('./auth.js').LoomAuthUser, record?: Record<string, unknown>): boolean;
   canDelete?(user: import('./auth.js').LoomAuthUser, record?: Record<string, unknown>): boolean;
+  /**
+   * Custom bulk handler. Built-in `delete` is handled by Loom; other action names
+   * from `bulkActions()` are dispatched here.
+   */
+  handleBulkAction?(
+    action: string,
+    ids: string[],
+    context: { user: import('./auth.js').LoomAuthUser | null },
+  ): Promise<{ ok?: boolean; message?: string; affected?: number }> | {
+    ok?: boolean;
+    message?: string;
+    affected?: number;
+  };
 };
 
 export const LOOM_OPTIONS = Symbol('LOOM_OPTIONS');

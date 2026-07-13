@@ -36,22 +36,29 @@
         </div>
       </section>
     {{/each}}
-    {{#unless readonly}}
-      <div class="flex justify-end gap-2 pt-1">
-        <button type="submit" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white rounded-md bg-fg-brand hover:opacity-90 transition">
+    <div data-loom-dialog-actions>
+      <button
+        type="button"
+        data-loom-dialog-close
+        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border border-default text-body rounded-md hover:bg-surface-hover transition"
+      >{{#if readonly}}Close{{else}}Cancel{{/if}}</button>
+      {{#unless readonly}}
+        <button
+          type="submit"
+          form="loom-form"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white rounded-md bg-fg-brand hover:opacity-90 transition"
+        >
           {{#if (eq mode 'create')}}Create{{else}}Save{{/if}}
         </button>
-      </div>
-    {{/unless}}
-    {{#if readonly}}
-      <div class="flex justify-end gap-2 pt-1">
+      {{/unless}}
+      {{#if readonly}}
         <button
           type="button"
           class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white rounded-md bg-fg-brand hover:opacity-90 transition"
           @click="window.LoomUI.openDialog({ url: '{{basePath}}/{{resource.slug}}/{{id}}/edit', title: 'Edit {{resource.singularLabel}}', slug: '{{resource.slug}}', replace: true })"
         >Edit</button>
-      </div>
-    {{/if}}
+      {{/if}}
+    </div>
   </form>
 {{else}}
 <div class="mx-auto max-w-5xl space-y-6">

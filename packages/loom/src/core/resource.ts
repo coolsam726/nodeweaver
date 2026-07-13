@@ -3,6 +3,7 @@ import {
   DeleteAction,
   EditAction,
   resolveActions,
+  resolveBulkHandlers,
   ViewAction,
   type ActionConfig,
   type ActionLike,
@@ -78,6 +79,8 @@ export abstract class Resource {
   static icon?: string;
   static navigationGroup?: string;
   static navigationSection?: string;
+  /** Lower sorts first in nav (default alphabetical by label). */
+  static navigationSort?: number;
   static recordTitleField = 'name';
   /** Optional record-level policy (instance checks + list scope) */
   static policy?: PolicyClass;
@@ -181,11 +184,13 @@ export abstract class Resource {
     const kanban = this.kanban(new KanbanBuilder());
     const hasExplicitDetail = detail !== undefined;
     const infolist = detail ?? infolistFromFields(form.fields);
-    const actions = resolveActions([
+    const actionBuilders = [
       ...this.headerActions(),
       ...this.recordActions(),
       ...this.bulkActions(),
-    ]);
+    ];
+    const actions = resolveActions(actionBuilders);
+    const bulkHandlers = resolveBulkHandlers(actionBuilders);
     const presentation = resolvePresentation(this.presentation());
 
     const searchableFields = [
@@ -200,6 +205,7 @@ export abstract class Resource {
       model: this.model,
       navigationGroup: this.navigationGroup,
       navigationSection: this.navigationSection,
+      navigationSort: this.navigationSort,
       recordTitleField: this.recordTitleField,
       icon: this.icon,
       fields: form.fields,
@@ -208,6 +214,7 @@ export abstract class Resource {
       infolist,
       kanban,
       actions,
+      bulkHandlers: Object.keys(bulkHandlers).length ? bulkHandlers : undefined,
       searchableFields: [...new Set(searchableFields)],
       defaultSort: table.defaultSort,
       hasKanban: Boolean(kanban),
@@ -238,6 +245,8 @@ export function extendResource<Base extends ResourceClassLike>(
     model?: string | (new (...args: never[]) => unknown);
     icon?: string;
     navigationGroup?: string;
+    navigationSection?: string;
+    navigationSort?: number;
     recordTitleField?: string;
     form?: (schema: FormSchemaBuilder) => FormSchemaBuilder | void;
     table?: (table: TableBuilder) => TableBuilder | void;
