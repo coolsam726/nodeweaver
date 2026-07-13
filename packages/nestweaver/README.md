@@ -46,7 +46,7 @@ When you enable the admin panel during prompts, Nestweaver scaffolds a full Loom
 | `LOOM_UPLOADS_DIR` | Local media root for `FileField` / `ImageField` (default `./uploads`) |
 | `LOOM_BRAND_*` | Optional branding overrides (see Loom README) |
 
-After `docker compose up` / `pnpm dev`, open `/admin` and sign in with the seed credentials. API docs: `/api/loom/v1/docs` (OpenAPI JSON: `/api/loom/v1/openapi.json`).
+After `docker compose up` / `pnpm dev`, open `/admin` and sign in with the seed credentials. API docs: `/api/loom/v1/docs` (Swagger) or `/api/loom/v1/redoc` (Redoc).
 
 For production databases, run `pnpm --filter api db:migrate` (TypeORM also applies migrations automatically when `NODE_ENV=production`).
 

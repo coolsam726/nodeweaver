@@ -1,14 +1,31 @@
+export type LoomOpenApiDocsUi = 'swagger' | 'redoc';
+
 /**
- * Build a FastAPI-style Swagger UI page for Loom's OpenAPI document.
- * Assets are same-origin (`{prefix}/docs/swagger-ui.*`) so default CSP applies.
+ * Build interactive OpenAPI docs HTML (Swagger UI or Redoc).
+ * Assets are same-origin under `{prefix}/docs/...` or `{prefix}/redoc/...` so default CSP applies.
  */
 export function buildLoomOpenApiDocsHtml(options: {
   title: string;
   /** Absolute path to the OpenAPI JSON (e.g. `/api/loom/v1/openapi.json`) */
   specUrl: string;
-  /** Absolute path prefix for vendored Swagger UI assets (e.g. `/api/loom/v1/docs`) */
+  /** Absolute path prefix for this UI's static assets */
   docsBasePath: string;
-  /** CSRF cookie name for Try-it-out mutations (double-submit) */
+  /** Which viewer to render (default: swagger) */
+  ui?: LoomOpenApiDocsUi;
+  /** CSRF cookie name for Swagger Try-it-out mutations (double-submit) */
+  csrfCookieName?: string;
+}): string {
+  const ui = options.ui ?? 'swagger';
+  if (ui === 'redoc') {
+    return buildRedocHtml(options);
+  }
+  return buildSwaggerHtml(options);
+}
+
+function buildSwaggerHtml(options: {
+  title: string;
+  specUrl: string;
+  docsBasePath: string;
   csrfCookieName?: string;
 }): string {
   const title = escapeHtml(options.title);
@@ -59,6 +76,34 @@ export function buildLoomOpenApiDocsHtml(options: {
       },
     });
   </script>
+</body>
+</html>
+`;
+}
+
+function buildRedocHtml(options: {
+  title: string;
+  specUrl: string;
+  docsBasePath: string;
+}): string {
+  const title = escapeHtml(options.title);
+  const docsBase = options.docsBasePath.replace(/\/$/, '');
+  const jsSrc = escapeHtml(`${docsBase}/redoc.standalone.js`);
+  const specAttr = escapeHtml(options.specUrl);
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${title} — API docs</title>
+  <style>
+    body { margin: 0; padding: 0; }
+  </style>
+</head>
+<body>
+  <redoc spec-url="${specAttr}"></redoc>
+  <script src="${jsSrc}"></script>
 </body>
 </html>
 `;

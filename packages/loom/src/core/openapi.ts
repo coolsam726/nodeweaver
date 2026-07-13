@@ -47,6 +47,13 @@ export function buildLoomOpenApiSpec(options: LoomOpenApiOptions): Record<string
         responses: { '200': { description: 'HTML' } },
       },
     },
+    [`${basePath}/redoc`]: {
+      get: {
+        summary: 'Interactive API docs (Redoc)',
+        tags: ['Discovery'],
+        responses: { '200': { description: 'HTML' } },
+      },
+    },
   };
 
   for (const meta of options.resources) {

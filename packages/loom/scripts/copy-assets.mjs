@@ -74,4 +74,27 @@ for (const file of swaggerFiles) {
   cpSync(source, join(swaggerTarget, file));
 }
 
+// Prefer node_modules redoc; fall back to vendored assets/redoc.
+const redocTarget = join(cssTargetDir, 'redoc');
+const redocVendored = join(packageRoot, 'assets', 'redoc');
+mkdirSync(redocTarget, { recursive: true });
+mkdirSync(redocVendored, { recursive: true });
+const redocFile = 'redoc.standalone.js';
+try {
+  const redocPkg = dirname(require.resolve('redoc/package.json'));
+  const fromNpm = join(redocPkg, 'bundles', redocFile);
+  if (existsSync(fromNpm)) {
+    cpSync(fromNpm, join(redocVendored, redocFile));
+  }
+} catch {
+  // use vendored assets/redoc
+}
+const redocSource = join(redocVendored, redocFile);
+if (!existsSync(redocSource)) {
+  throw new Error(
+    'Missing Redoc asset (install redoc or vendor assets/redoc/redoc.standalone.js)',
+  );
+}
+cpSync(redocSource, join(redocTarget, redocFile));
+
 console.log('Loom assets copied to dist/');

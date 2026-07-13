@@ -29,6 +29,7 @@ import { setResponseCookies } from './loom-auth.interceptor.js';
 import { LoomAuthService } from './loom-auth.service.js';
 import { LoomService } from './loom.service.js';
 import {
+  loomRedocStandalonePath,
   loomSwaggerUiBundlePath,
   loomSwaggerUiCssPath,
 } from './paths.js';
@@ -163,10 +164,20 @@ export function createLoomApiController(
       }
       const prefix = `/${this.loom.apiPrefix.replace(/^\//, '')}`;
       const auth = this.auth.authOptions;
+      // Single-UI mode `redoc` still uses /docs as the entry URL.
+      if (!this.loom.openapiSwaggerEnabled) {
+        return buildLoomOpenApiDocsHtml({
+          title: this.loom.panelTitle,
+          specUrl: `${prefix}/openapi.json`,
+          docsBasePath: `${prefix}/redoc`,
+          ui: 'redoc',
+        });
+      }
       return buildLoomOpenApiDocsHtml({
         title: this.loom.panelTitle,
         specUrl: `${prefix}/openapi.json`,
         docsBasePath: `${prefix}/docs`,
+        ui: 'swagger',
         csrfCookieName: auth ? csrfCookieName(auth) : DEFAULT_CSRF_COOKIE,
       });
     }
@@ -176,7 +187,7 @@ export function createLoomApiController(
     @Header('Content-Type', 'text/css; charset=utf-8')
     @Header('Cache-Control', 'public, max-age=86400')
     openApiDocsCss(): string {
-      if (!this.loom.openapiDocsEnabled) {
+      if (!this.loom.openapiSwaggerEnabled) {
         throw new HttpException('OpenAPI docs are not enabled', HttpStatus.NOT_FOUND);
       }
       return readFileSync(loomSwaggerUiCssPath(), 'utf8');
@@ -187,10 +198,38 @@ export function createLoomApiController(
     @Header('Content-Type', 'application/javascript; charset=utf-8')
     @Header('Cache-Control', 'public, max-age=86400')
     openApiDocsJs(): string {
-      if (!this.loom.openapiDocsEnabled) {
+      if (!this.loom.openapiSwaggerEnabled) {
         throw new HttpException('OpenAPI docs are not enabled', HttpStatus.NOT_FOUND);
       }
       return readFileSync(loomSwaggerUiBundlePath(), 'utf8');
+    }
+
+    @LoomPublic()
+    @Get('redoc')
+    @Header('Content-Type', 'text/html; charset=utf-8')
+    @Header('Cache-Control', 'no-cache')
+    openApiRedoc(): string {
+      if (!this.loom.openapiRedocEnabled) {
+        throw new HttpException('OpenAPI Redoc is not enabled', HttpStatus.NOT_FOUND);
+      }
+      const prefix = `/${this.loom.apiPrefix.replace(/^\//, '')}`;
+      return buildLoomOpenApiDocsHtml({
+        title: this.loom.panelTitle,
+        specUrl: `${prefix}/openapi.json`,
+        docsBasePath: `${prefix}/redoc`,
+        ui: 'redoc',
+      });
+    }
+
+    @LoomPublic()
+    @Get('redoc/redoc.standalone.js')
+    @Header('Content-Type', 'application/javascript; charset=utf-8')
+    @Header('Cache-Control', 'public, max-age=86400')
+    openApiRedocJs(): string {
+      if (!this.loom.openapiRedocEnabled) {
+        throw new HttpException('OpenAPI Redoc is not enabled', HttpStatus.NOT_FOUND);
+      }
+      return readFileSync(loomRedocStandalonePath(), 'utf8');
     }
 
     @LoomPublic()

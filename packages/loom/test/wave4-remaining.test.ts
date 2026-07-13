@@ -144,6 +144,7 @@ describe('openapi', () => {
     assert.ok(paths['/api/loom/v1/tags']);
     assert.ok(paths['/api/loom/v1/tags/export']);
     assert.ok(paths['/api/loom/v1/docs']);
+    assert.ok(paths['/api/loom/v1/redoc']);
   });
 });
 
@@ -153,6 +154,7 @@ describe('openapi docs html', () => {
       title: 'CRM',
       specUrl: '/api/loom/v1/openapi.json',
       docsBasePath: '/api/loom/v1/docs',
+      ui: 'swagger',
       csrfCookieName: 'loom_csrf',
     });
     assert.match(html, /CRM — API docs/);
@@ -161,5 +163,16 @@ describe('openapi docs html', () => {
     assert.match(html, /\/api\/loom\/v1\/docs\/swagger-ui\.css/);
     assert.match(html, /X-CSRF-Token/);
     assert.match(html, /loom_csrf/);
+  });
+
+  it('embeds redoc with absolute asset and spec urls', () => {
+    const html = buildLoomOpenApiDocsHtml({
+      title: 'CRM',
+      specUrl: '/api/loom/v1/openapi.json',
+      docsBasePath: '/api/loom/v1/redoc',
+      ui: 'redoc',
+    });
+    assert.match(html, /<redoc spec-url="\/api\/loom\/v1\/openapi\.json">/);
+    assert.match(html, /\/api\/loom\/v1\/redoc\/redoc\.standalone\.js/);
   });
 });

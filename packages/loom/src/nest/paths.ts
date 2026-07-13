@@ -48,3 +48,7 @@ export function loomSwaggerUiBundlePath(): string {
 export function loomSwaggerUiCssPath(): string {
   return join(loomSwaggerUiDir(), 'swagger-ui.css');
 }
+
+export function loomRedocStandalonePath(): string {
+  return join(loomAssetsDir(), 'redoc', 'redoc.standalone.js');
+}

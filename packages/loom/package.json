@@ -80,6 +80,7 @@
     "alpinejs": "3.14.9",
     "drizzle-orm": "^0.44.2",
     "handlebars": "^4.7.8",
+    "redoc": "2.5.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "swagger-ui-dist": "5.18.2",
