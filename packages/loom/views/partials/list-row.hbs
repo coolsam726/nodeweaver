@@ -1,0 +1,45 @@
+{{!-- Expects: record as `this` / root of partial context via #with or #each item --}}
+<tr class="hover:bg-surface-row-hover transition-colors" data-loom-record-id="{{id}}">
+  {{#if @root.bulkEnabled}}
+  <td class="px-3 py-3">
+    <input
+      type="checkbox"
+      class="rounded border-default text-fg-brand focus:ring-fg-brand/30"
+      value="{{id}}"
+      :checked="selected.includes('{{id}}')"
+      @change="toggleId('{{id}}')"
+      aria-label="Select row"
+    />
+  </td>
+  {{else}}
+  <td class="px-3 py-3"></td>
+  {{/if}}
+  {{#each @root.resource.columns}}
+    <td class="px-4 py-3 text-body">
+      {{#if (eq type 'boolean')}}
+        <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium {{#if (lookup ../this name)}}bg-success-soft text-success-strong{{else}}bg-badge-neutral text-body-subtle{{/if}}">
+          {{cellValue .. this}}
+        </span>
+      {{else}}
+        {{#if (eq @root.resource.presentation.detail 'modal')}}
+          <button
+            type="button"
+            class="text-heading hover:text-fg-brand hover:underline text-left"
+            {{#if (or (not @root.abilities) @root.abilities.canView)}}
+              @click="$dispatch('loom-open-dialog', { url: '{{@root.basePath}}/{{@root.resource.slug}}/{{../id}}', title: 'View record', slug: '{{@root.resource.slug}}' })"
+            {{else}}
+              disabled
+            {{/if}}
+          >{{cellValue .. this}}</button>
+        {{else}}
+          {{#if (or (not @root.abilities) @root.abilities.canView)}}
+            <a href="{{@root.basePath}}/{{@root.resource.slug}}/{{../id}}" class="text-heading hover:text-fg-brand hover:underline">{{cellValue .. this}}</a>
+          {{else}}
+            <span class="text-heading">{{cellValue .. this}}</span>
+          {{/if}}
+        {{/if}}
+      {{/if}}
+    </td>
+  {{/each}}
+  {{> list-row-actions}}
+</tr>

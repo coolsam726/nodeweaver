@@ -1,5 +1,3 @@
-import type { FieldConfig } from './types.js';
-
 export interface KanbanCardConfig {
   titleField: string;
   subtitleField?: string;
@@ -10,8 +8,14 @@ export interface KanbanCardConfig {
 export interface KanbanSchema {
   title?: string;
   groupBy?: string;
+  /**
+   * Ordered group keys when `groupBy` is set (e.g. pipeline stages).
+   * Empty columns are still shown so the board keeps a stable layout.
+   */
+  columns?: string[];
+  /** Field used to sort cards within a column (ascending). */
   sequenceField?: string;
-  /** Responsive card grid columns on large screens (default 4). Unrelated to groupBy. */
+  /** Card mosaic columns when the board is ungrouped (default 4). */
   gridColumns?: number;
   /** @deprecated Use gridColumns */
   columnCount?: number;
@@ -33,6 +37,19 @@ export class KanbanBuilder {
     return this;
   }
 
+  /**
+   * Stable left-to-right column order for grouped boards.
+   * Prefer this over relying on first-seen data order.
+   */
+  columns(...keys: string[]): this {
+    this.config.columns = keys.map(String);
+    return this;
+  }
+
+  /**
+   * Sort cards within each column by this field (ascending).
+   * @deprecated Prefer `columns(...)` for group order; this only sorts within a column.
+   */
   sequence(field: string): this {
     this.config.sequenceField = field;
     return this;
@@ -54,7 +71,7 @@ export class KanbanBuilder {
     return this;
   }
 
-  /** Card grid columns on large screens (default 4). Responsive below lg. */
+  /** Card mosaic columns when ungrouped (default 4). Ignored for grouped boards. */
   gridColumns(count: number): this {
     this.config.gridColumns = Math.max(1, Math.min(6, Math.floor(count)));
     return this;
@@ -72,6 +89,7 @@ export class KanbanBuilder {
       gridColumns,
       columnCount: gridColumns,
       card: { ...this.config.card },
+      columns: this.config.columns ? [...this.config.columns] : undefined,
     };
   }
 }
@@ -85,9 +103,13 @@ export interface KanbanColumn {
 export function groupKanbanRecords(
   items: Record<string, unknown>[],
   groupBy: string | undefined,
+  options?: {
+    columnOrder?: string[];
+    sequenceField?: string;
+  },
 ): KanbanColumn[] {
   if (!groupBy) {
-    return [{ key: 'all', label: 'All records', items }];
+    return [{ key: 'all', label: 'All records', items: sortColumnItems(items, options?.sequenceField) }];
   }
 
   const groups = new Map<string, Record<string, unknown>[]>();
@@ -99,11 +121,44 @@ export function groupKanbanRecords(
     groups.set(key, bucket);
   }
 
-  return [...groups.entries()].map(([key, groupItems]) => ({
-    key,
-    label: columnLabel(key, groupBy, groupItems[0]?.[groupBy]),
-    items: groupItems,
-  }));
+  const orderedKeys: string[] = [];
+  const seen = new Set<string>();
+  for (const key of options?.columnOrder ?? []) {
+    const normalized = String(key);
+    if (seen.has(normalized)) continue;
+    seen.add(normalized);
+    orderedKeys.push(normalized);
+  }
+  for (const key of groups.keys()) {
+    if (seen.has(key)) continue;
+    seen.add(key);
+    orderedKeys.push(key);
+  }
+
+  return orderedKeys.map((key) => {
+    const groupItems = groups.get(key) ?? [];
+    return {
+      key,
+      label: columnLabel(key, groupBy, groupItems[0]?.[groupBy]),
+      items: sortColumnItems(groupItems, options?.sequenceField),
+    };
+  });
+}
+
+function sortColumnItems(
+  items: Record<string, unknown>[],
+  sequenceField?: string,
+): Record<string, unknown>[] {
+  if (!sequenceField) return items;
+  return [...items].sort((a, b) => {
+    const left = a[sequenceField];
+    const right = b[sequenceField];
+    if (left == null && right == null) return 0;
+    if (left == null) return 1;
+    if (right == null) return -1;
+    if (typeof left === 'number' && typeof right === 'number') return left - right;
+    return String(left).localeCompare(String(right), undefined, { numeric: true });
+  });
 }
 
 function columnLabel(

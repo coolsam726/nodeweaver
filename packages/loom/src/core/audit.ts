@@ -6,7 +6,8 @@ export type LoomAuditAction =
   | 'delete'
   | 'restore'
   | 'bulkDelete'
-  | 'export';
+  | 'export'
+  | 'import';
 
 export interface LoomAuditEvent {
   action: LoomAuditAction;

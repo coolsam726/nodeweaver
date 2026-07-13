@@ -416,7 +416,7 @@ export function createLoomApiController(
         if (action === 'delete') {
           return await this.loom.bulkDelete(resource, ids);
         }
-        throw new HttpException(`Unknown bulk action "${action}"`, HttpStatus.BAD_REQUEST);
+        return await this.loom.runBulkAction(resource, action, ids);
       } catch (error) {
         throw mapApiError(error);
       }

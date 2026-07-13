@@ -4,68 +4,116 @@
   @loom-open-confirm.window="openConfirm($event.detail)"
   @keydown.escape.window="if (open) close()"
 >
-  <template x-if="open">
-    <div>
-      <div class="loom-dialog-backdrop" @click="close()"></div>
+  {{!-- x-show (not x-if): keep mount targets in the DOM so async fetch can fill them reliably. --}}
+  <div x-show="open" x-cloak style="display: none;">
+    <div class="loom-dialog-backdrop" @click="close()"></div>
+
+    <div
+      class="loom-dialog-panel"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="title"
+      :class="{ 'is-fullscreen': fullscreen, 'is-prompt': confirmMode }"
+      :style="panelStyle()"
+      @click.stop
+      @keydown.tab="trapFocus($event)"
+      x-ref="panel"
+    >
+      <div class="loom-dialog-header" @mousedown="startDrag($event)">
+        <h2 class="min-w-0 flex-1 truncate text-sm font-semibold text-heading" id="loom-dialog-title" x-text="title"></h2>
+        <div class="flex shrink-0 items-center gap-1">
+          <a
+            x-show="fullPageUrl"
+            :href="fullPageUrl"
+            class="rounded-md px-2 py-1 text-xs text-body-subtle hover:bg-surface-hover hover:text-heading"
+          >Open in full page</a>
+          <button
+            type="button"
+            class="rounded-md p-1.5 text-body-subtle hover:bg-surface-hover hover:text-heading"
+            x-show="!confirmMode"
+            @click="toggleFullscreen()"
+            :title="fullscreen ? 'Exit full screen' : 'Full screen'"
+          >
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"/>
+            </svg>
+          </button>
+          <button
+            type="button"
+            class="rounded-md p-1.5 text-body-subtle hover:bg-surface-hover hover:text-heading"
+            @click="close()"
+            title="Close"
+            aria-label="Close"
+            x-ref="closeBtn"
+          >×</button>
+        </div>
+      </div>
+
+      <div class="loom-dialog-body relative" :class="{ 'loom-dialog-body--prompt': confirmMode }">
+        <div
+          x-show="loading"
+          class="absolute inset-0 z-10 flex items-center justify-center bg-neutral-primary/90 text-sm text-body-subtle"
+        >Loading…</div>
+
+        <div x-show="confirmMode && !loading" class="space-y-3">
+          <div class="flex items-start gap-3">
+            <div
+              class="loom-dialog-prompt-icon"
+              :class="{
+                'is-danger': promptVariant === 'danger',
+                'is-warning': promptVariant === 'warning',
+                'is-info': promptVariant === 'info' || promptVariant === 'primary',
+                'is-success': promptVariant === 'success'
+              }"
+              aria-hidden="true"
+            >
+              <svg x-show="promptVariant === 'danger' || promptVariant === 'warning'" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
+              </svg>
+              <svg x-show="promptVariant === 'info' || promptVariant === 'primary'" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"/>
+              </svg>
+              <svg x-show="promptVariant === 'success'" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </div>
+            <p class="text-sm text-body" x-text="confirmMessage"></p>
+          </div>
+        </div>
+
+        <div x-show="!confirmMode">
+          <div data-loom-dialog-body></div>
+        </div>
+      </div>
+
+      <div class="loom-dialog-footer" x-show="confirmMode">
+        <button
+          type="button"
+          class="rounded-md px-4 py-2 text-sm hover:bg-surface-hover"
+          x-show="promptMode !== 'alert'"
+          @click="close()"
+          x-text="cancelLabel"
+        >Cancel</button>
+        <button
+          type="button"
+          class="rounded-md px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+          :class="confirmButtonClass()"
+          @click="submitConfirm()"
+          x-text="confirmLabel"
+        >Confirm</button>
+      </div>
 
       <div
-        class="loom-dialog-panel"
-        role="dialog"
-        aria-modal="true"
-        :aria-label="title"
-        :class="{ 'is-fullscreen': fullscreen }"
-        :style="panelStyle()"
-        @click.stop
-        @keydown.tab="trapFocus($event)"
-        x-ref="panel"
-      >
-        <div class="loom-dialog-header" @mousedown="startDrag($event)">
-          <h2 class="min-w-0 flex-1 truncate text-sm font-semibold text-heading" id="loom-dialog-title" x-text="title"></h2>
-          <div class="flex shrink-0 items-center gap-1">
-            <template x-if="fullPageUrl">
-              <a
-                :href="fullPageUrl"
-                class="rounded-md px-2 py-1 text-xs text-body-subtle hover:bg-surface-hover hover:text-heading"
-              >Open in full page</a>
-            </template>
-            <button
-              type="button"
-              class="rounded-md p-1.5 text-body-subtle hover:bg-surface-hover hover:text-heading"
-              @click="toggleFullscreen()"
-              :title="fullscreen ? 'Exit full screen' : 'Full screen'"
-            >
-              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"/>
-              </svg>
-            </button>
-            <button
-              type="button"
-              class="rounded-md p-1.5 text-body-subtle hover:bg-surface-hover hover:text-heading"
-              @click="close()"
-              title="Close"
-              aria-label="Close"
-              x-ref="closeBtn"
-            >×</button>
-          </div>
-        </div>
+        class="loom-dialog-footer"
+        x-show="!confirmMode && hasContentFooter"
+        data-loom-dialog-footer
+      ></div>
 
-        <div class="loom-dialog-body relative">
-          <div x-show="loading" class="py-8 text-center text-sm text-body-subtle">Loading…</div>
-          <div x-show="confirmMode && !loading" class="text-sm text-body-subtle" x-text="confirmMessage"></div>
-          <div x-show="!confirmMode && !loading" x-ref="body"></div>
-        </div>
-
-        <template x-if="confirmMode">
-          <div class="loom-dialog-footer">
-            <button type="button" class="rounded-md px-4 py-2 text-sm hover:bg-surface-hover" @click="close()">Cancel</button>
-            <button type="button" class="rounded-md bg-fg-danger px-4 py-2 text-sm font-medium text-white hover:opacity-90" @click="submitConfirm()">Delete</button>
-          </div>
-        </template>
-
-        <template x-if="!confirmMode && !fullscreen">
-          <div class="loom-dialog-resize-handle" @mousedown="startResize($event)"></div>
-        </template>
-      </div>
+      <div
+        class="loom-dialog-resize-handle"
+        x-show="!confirmMode && !fullscreen"
+        @mousedown="startResize($event)"
+      ></div>
     </div>
-  </template>
+  </div>
 </div>

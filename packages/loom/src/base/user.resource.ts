@@ -48,7 +48,7 @@ export abstract class UserResourceBase extends Resource {
           .widget('combobox')
           .label('Companies')
           .columnSpanFull(),
-        RelationField.make('companyId').manyToOne('companies').label('Home company'),
+        RelationField.make('companyId').manyToOne('companies').label('Default company'),
         BooleanField.make('active').label('Active'),
       );
     return schema.build();
@@ -62,7 +62,7 @@ export abstract class UserResourceBase extends Resource {
         TextColumn.make('email').searchable().sortable(),
         RelationColumn.make('roleIds').manyToMany('roles').label('Roles'),
         RelationColumn.make('companyIds').manyToMany('companies').label('Companies'),
-        RelationColumn.make('company.displayName').manyToOne('companies').label('Home'),
+        RelationColumn.make('company.displayName').manyToOne('companies').label('Default company'),
         BooleanColumn.make('active').sortable(),
         DateTimeColumn.make('createdAt').sortable(),
       )
@@ -78,7 +78,7 @@ export abstract class UserResourceBase extends Resource {
         TextColumn.make('email'),
         RelationColumn.make('roleIds').manyToMany('roles').label('Roles'),
         RelationColumn.make('companyIds').manyToMany('companies').label('Companies'),
-        RelationColumn.make('company.displayName').manyToOne('companies').label('Home'),
+        RelationColumn.make('company.displayName').manyToOne('companies').label('Default company'),
         BooleanColumn.make('active'),
         DateTimeColumn.make('createdAt'),
       )

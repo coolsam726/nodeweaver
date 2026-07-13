@@ -1,6 +1,11 @@
-import { groupIcon } from './menu.js';
+import {
+  compareNavigationItems,
+  groupIcon,
+  indexNavigationConfig,
+  type NavigationGroup,
+} from './menu.js';
 import type { LoomAuthUser } from './auth.js';
-import type { ResourceClass, ResourceMeta } from './types.js';
+import type { LoomNavigationOptions, ResourceClass, ResourceMeta } from './types.js';
 
 export class ResourceRegistry {
   private readonly resources = new Map<string, ResourceMeta>();
@@ -33,8 +38,13 @@ export class ResourceRegistry {
     return resourceClass;
   }
 
-  navigationGroups(user?: LoomAuthUser | null): Array<{ name: string; icon?: string; items: ResourceMeta[] }> {
+  navigationGroups(
+    user?: LoomAuthUser | null,
+    navigation?: LoomNavigationOptions,
+  ): NavigationGroup[] {
+    const { primary } = indexNavigationConfig(navigation);
     const groups = new Map<string, ResourceMeta[]>();
+
     for (const meta of this.all()) {
       if (user) {
         const resourceClass = this.classes.get(meta.slug);
@@ -46,13 +56,23 @@ export class ResourceRegistry {
       items.push(meta);
       groups.set(group, items);
     }
+
     return [...groups.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([name, items]) => ({
-        name,
-        icon: groupIcon(name, items.find((item) => item.icon)?.icon),
-        items: items.sort((a, b) => a.label.localeCompare(b.label)),
-      }));
+      .map(([name, items]) => {
+        const config = primary.get(name);
+        return {
+          name,
+          icon: config?.icon ?? groupIcon(name, items.find((item) => item.icon)?.icon),
+          sort: config?.sort,
+          items: items.sort(compareNavigationItems),
+        };
+      })
+      .sort((a, b) => {
+        const sortA = a.sort ?? Number.POSITIVE_INFINITY;
+        const sortB = b.sort ?? Number.POSITIVE_INFINITY;
+        if (sortA !== sortB) return sortA - sortB;
+        return a.name.localeCompare(b.name);
+      });
   }
 
   get(slug: string): ResourceMeta | undefined {

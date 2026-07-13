@@ -115,6 +115,24 @@ export function buildLoomOpenApiSpec(options: LoomOpenApiOptions): Record<string
         responses: { '200': { description: 'CSV or JSON export' } },
       },
     };
+    paths[`${collection}/import`] = {
+      post: {
+        summary: `Import ${meta.label}`,
+        tags: [tag],
+        requestBody: {
+          content: {
+            'application/x-www-form-urlencoded': {
+              schema: {
+                type: 'object',
+                properties: { csv: { type: 'string' } },
+                required: ['csv'],
+              },
+            },
+          },
+        },
+        responses: { '200': { description: 'Import result' } },
+      },
+    };
     paths[`${collection}/bulk`] = {
       post: {
         summary: `Bulk action on ${meta.label}`,

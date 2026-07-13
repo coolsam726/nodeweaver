@@ -10,25 +10,22 @@
   </div>
 
   {{#if kanban.groupBy}}
-    <div class="space-y-8">
+    <div class="loom-kanban-board" role="list">
       {{#each columns}}
-        <section class="space-y-3">
-          <div class="flex items-baseline justify-between gap-2 px-0.5">
-            <h3 class="text-sm font-semibold text-heading">{{label}}</h3>
-            <span class="text-xs text-body-subtle">{{items.length}} records</span>
-          </div>
-          {{#if items.length}}
-            <div
-              class="loom-kanban-grid"
-              style="--loom-kanban-cols: {{#if ../kanban.gridColumns}}{{../kanban.gridColumns}}{{else}}4{{/if}}"
-            >
+        <section class="loom-kanban-column" role="listitem" data-kanban-column="{{key}}">
+          <header class="loom-kanban-column__header">
+            <h3 class="loom-kanban-column__title">{{label}}</h3>
+            <span class="loom-kanban-column__count">{{items.length}}</span>
+          </header>
+          <div class="loom-kanban-column__body">
+            {{#if items.length}}
               {{#each items}}
                 {{> kanban-card basePath=../../basePath resource=../../resource kanban=../../kanban}}
               {{/each}}
-            </div>
-          {{else}}
-            <p class="px-2 py-8 text-center text-sm text-body-subtle loom-card rounded-xl">No cards</p>
-          {{/if}}
+            {{else}}
+              <p class="loom-kanban-column__empty">No cards</p>
+            {{/if}}
+          </div>
         </section>
       {{/each}}
     </div>

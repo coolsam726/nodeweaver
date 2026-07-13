@@ -109,13 +109,18 @@ describe('audit', () => {
 });
 
 describe('list actions', () => {
-  it('adds default export and bulk delete actions', () => {
+  it('adds default export, import and bulk delete actions', () => {
     const resolved = resolveListActions(baseMeta, '/admin', null, false, {
       canDelete: true,
       canViewAny: true,
+      canView: true,
+      canEdit: true,
+      canCreate: true,
     });
     assert.ok(resolved.headerActions.some((action) => action.name === 'export'));
+    assert.ok(resolved.headerActions.some((action) => action.name === 'import'));
     assert.ok(resolved.bulkActions.some((action) => action.name === 'delete'));
+    assert.ok(Array.isArray(resolved.recordActions));
     assert.equal(resourceHasMediaFields(baseMeta), true);
   });
 

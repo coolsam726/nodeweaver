@@ -1,4 +1,8 @@
-import type { ResourceMeta } from './types.js';
+import type {
+  LoomNavigationGroupConfig,
+  LoomNavigationOptions,
+  ResourceMeta,
+} from './types.js';
 
 export interface MenuRoot {
   label: string;
@@ -12,12 +16,14 @@ export interface MenuSecondaryChild {
   label: string;
   href: string;
   active: boolean;
+  icon?: string;
 }
 
 export interface MenuSecondaryItem {
   label: string;
   href?: string;
   active: boolean;
+  icon?: string;
   children?: MenuSecondaryChild[];
 }
 
@@ -48,7 +54,36 @@ export function groupIcon(name: string, fallback?: string): string {
 export interface NavigationGroup {
   name: string;
   icon?: string;
+  sort?: number;
   items: ResourceMeta[];
+}
+
+export function compareNavigationItems(a: ResourceMeta, b: ResourceMeta): number {
+  const sortA = a.navigationSort ?? Number.POSITIVE_INFINITY;
+  const sortB = b.navigationSort ?? Number.POSITIVE_INFINITY;
+  if (sortA !== sortB) return sortA - sortB;
+  return a.label.localeCompare(b.label);
+}
+
+export function indexNavigationConfig(
+  navigation?: LoomNavigationOptions,
+): {
+  primary: Map<string, LoomNavigationGroupConfig>;
+  secondary: Map<string, LoomNavigationGroupConfig>;
+} {
+  const primary = new Map<string, LoomNavigationGroupConfig>();
+  const secondary = new Map<string, LoomNavigationGroupConfig>();
+
+  for (const group of navigation?.groups ?? []) {
+    const target =
+      group.placement === 'secondary' ? secondary : primary;
+    target.set(group.name, group);
+  }
+  for (const section of navigation?.sections ?? []) {
+    secondary.set(section.name, { ...section, placement: 'secondary' });
+  }
+
+  return { primary, secondary };
 }
 
 export function menuLayoutContext(
@@ -56,7 +91,10 @@ export function menuLayoutContext(
   basePath: string,
   currentSlug?: string,
   pageTitle?: string,
+  navigation?: LoomNavigationOptions,
 ): MenuLayoutContext {
+  const { secondary: sectionConfig } = indexNavigationConfig(navigation);
+
   const menuRoots: MenuRoot[] = [
     {
       label: 'Dashboard',
@@ -92,7 +130,7 @@ export function menuLayoutContext(
     : undefined;
 
   const menuSecondary = activeGroup
-    ? buildSecondaryMenu(activeGroup, basePath, currentSlug)
+    ? buildSecondaryMenu(activeGroup, basePath, currentSlug, sectionConfig)
     : [];
 
   const breadcrumbs = buildBreadcrumbs(
@@ -113,14 +151,15 @@ export function menuLayoutContext(
 }
 
 function firstGroupHref(group: NavigationGroup, basePath: string): string {
-  const sorted = [...group.items].sort((a, b) => a.label.localeCompare(b.label));
+  const sorted = [...group.items].sort(compareNavigationItems);
   return `${basePath}/${sorted[0]?.slug ?? ''}`;
 }
 
 function buildSecondaryMenu(
   group: NavigationGroup,
   basePath: string,
-  currentSlug?: string,
+  currentSlug: string | undefined,
+  sectionConfig: Map<string, LoomNavigationGroupConfig>,
 ): MenuSecondaryItem[] {
   const sectionMap = new Map<string, ResourceMeta[]>();
   const flatItems: ResourceMeta[] = [];
@@ -138,26 +177,37 @@ function buildSecondaryMenu(
 
   const secondary: MenuSecondaryItem[] = [];
 
-  for (const [label, items] of [...sectionMap.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+  const sectionEntries = [...sectionMap.entries()].sort(([a], [b]) => {
+    const sortA = sectionConfig.get(a)?.sort ?? Number.POSITIVE_INFINITY;
+    const sortB = sectionConfig.get(b)?.sort ?? Number.POSITIVE_INFINITY;
+    if (sortA !== sortB) return sortA - sortB;
+    return a.localeCompare(b);
+  });
+
+  for (const [label, items] of sectionEntries) {
+    const config = sectionConfig.get(label);
     const children = items
-      .sort((a, b) => a.label.localeCompare(b.label))
+      .sort(compareNavigationItems)
       .map((item) => ({
         label: item.label,
         href: `${basePath}/${item.slug}`,
         active: item.slug === currentSlug,
+        icon: item.icon,
       }));
     secondary.push({
       label,
+      icon: config?.icon,
       active: children.some((child) => child.active),
       children,
     });
   }
 
-  for (const item of flatItems.sort((a, b) => a.label.localeCompare(b.label))) {
+  for (const item of flatItems.sort(compareNavigationItems)) {
     secondary.push({
       label: item.label,
       href: `${basePath}/${item.slug}`,
       active: item.slug === currentSlug,
+      icon: item.icon,
     });
   }
 

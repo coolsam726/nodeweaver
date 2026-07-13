@@ -448,6 +448,22 @@
       _dialogOnResult = typeof detail.onResult === 'function' ? detail.onResult : null;
       window.dispatchEvent(new CustomEvent('loom-open-dialog', { detail }));
     },
+    openConfirm(detail) {
+      window.dispatchEvent(new CustomEvent('loom-open-confirm', { detail }));
+    },
+    readImportFile(event) {
+      const input = event?.target;
+      const file = input?.files?.[0];
+      if (!file) return;
+      const form = input.closest('form');
+      const textarea = form?.querySelector('textarea[name="csv"]');
+      if (!textarea) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        textarea.value = String(reader.result || '');
+      };
+      reader.readAsText(file);
+    },
   };
 
   let _dialogOnResult = null;
@@ -1245,9 +1261,201 @@
     Alpine.data('loomM2mCheckboxFromEl', (el) => createLoomM2mCheckbox(readM2mConfig(el)));
     Alpine.data('loomM2mTableFromEl', (el) => createLoomM2mTable(readM2mConfig(el)));
 
+    Alpine.data('loomListToolbar', (cfg = {}) => ({
+      searchInput: '',
+      chips: [],
+      groupBy: cfg.groupBy || null,
+      sort: cfg.sort || '',
+      direction: cfg.direction || '',
+      perPage:
+        cfg.perPage === 'all' || Number(cfg.perPage) === Number(cfg.allPerPage)
+          ? 'all'
+          : String(cfg.perPage || 15),
+      trashed: cfg.trashed || false,
+      headers: Array.isArray(cfg.headers) ? cfg.headers : [],
+      basePath: cfg.basePath || '',
+      slug: cfg.slug || '',
+      view: cfg.view || 'table',
+      allPerPage: cfg.allPerPage || 1000,
+      panelOpen: false,
+      openFilterField: null,
+      m2oQuery: {},
+      m2oResults: {},
+      init() {
+        const chips = [];
+        const search = (cfg.search || '').trim();
+        if (search) {
+          chips.push({ field: null, op: 'ilike', value: search, label: `Search: "${search}"` });
+          this.searchInput = search;
+        }
+        const filters = Array.isArray(cfg.filters) ? cfg.filters : [];
+        for (const chip of filters) {
+          if (chip && chip.field) chips.push(chip);
+        }
+        this.chips = chips;
+      },
+      _searchChipIndex() {
+        return this.chips.findIndex((c) => c.field === null);
+      },
+      get _searchValue() {
+        const i = this._searchChipIndex();
+        return i >= 0 ? this.chips[i].value : '';
+      },
+      buildUrl() {
+        const fieldChips = this.chips.filter((c) => c.field !== null);
+        const path =
+          this.view === 'kanban'
+            ? `${this.basePath}/${this.slug}/kanban`
+            : `${this.basePath}/${this.slug}`;
+        const params = new URLSearchParams();
+        if (this._searchValue) params.set('search', String(this._searchValue));
+        if (this.sort) {
+          params.set('sort', this.sort);
+          if (this.direction === 'asc' || this.direction === 'desc') {
+            params.set('direction', this.direction);
+          }
+        }
+        if (this.perPage && this.perPage !== '15') params.set('perPage', String(this.perPage));
+        if (fieldChips.length) params.set('filters', JSON.stringify(fieldChips));
+        if (this.groupBy) params.set('groupBy', this.groupBy);
+        if (this.trashed === true || this.trashed === 'only' || this.trashed === '1') {
+          params.set('trashed', '1');
+        }
+        const qs = params.toString();
+        return qs ? `${path}?${qs}` : path;
+      },
+      reload() {
+        window.location.assign(this.buildUrl());
+      },
+      onSearchChange() {
+        const value = (this.searchInput || '').trim();
+        const i = this._searchChipIndex();
+        if (!value) {
+          if (i >= 0) this.chips.splice(i, 1);
+        } else {
+          const chip = { field: null, op: 'ilike', value, label: `Search: "${value}"` };
+          if (i >= 0) this.chips[i] = chip;
+          else this.chips.push(chip);
+        }
+        this.reload();
+      },
+      clearSearch() {
+        this.searchInput = '';
+        this.onSearchChange();
+      },
+      removeChip(i) {
+        const chip = this.chips[i];
+        this.chips.splice(i, 1);
+        if (chip && chip.field === null) this.searchInput = '';
+        this.reload();
+      },
+      clearAll() {
+        this.chips = [];
+        this.searchInput = '';
+        this.groupBy = null;
+        this.reload();
+      },
+      filterableHeaders() {
+        return this.headers.filter(
+          (h) => h.filter_kind === 'm2o' || h.filter_kind === 'boolean' || h.filter_kind === 'select',
+        );
+      },
+      groupableHeaders() {
+        return this.headers.filter(
+          (h) => h.group_kind === 'm2o' || h.group_kind === 'boolean' || h.group_kind === 'select',
+        );
+      },
+      toggleFilterField(name) {
+        this.openFilterField = this.openFilterField === name ? null : name;
+      },
+      addBooleanFilter(h, value) {
+        this.chips.push({
+          field: h.name,
+          op: '=',
+          value,
+          label: `${h.label}: ${value ? 'Yes' : 'No'}`,
+        });
+        this.openFilterField = null;
+        this.panelOpen = false;
+        this.reload();
+      },
+      addSelectFilter(h, opt) {
+        this.chips.push({
+          field: h.name,
+          op: '=',
+          value: opt.value,
+          label: `${h.label}: ${opt.label}`,
+        });
+        this.openFilterField = null;
+        this.panelOpen = false;
+        this.reload();
+      },
+      async searchM2o(h) {
+        const q = this.m2oQuery[h.name] || '';
+        const fieldName = h.filterField || h.name;
+        try {
+          const url = `${this.basePath}/${this.slug}/relation-search?field=${encodeURIComponent(fieldName)}&q=${encodeURIComponent(q)}`;
+          const res = await fetch(url, { headers: csrfHeaders() });
+          if (!res.ok) throw new Error('fetch failed');
+          const data = await res.json();
+          this.m2oResults[h.name] = data.results || data.options || data || [];
+        } catch {
+          this.m2oResults[h.name] = [];
+        }
+      },
+      addM2oFilter(h, opt) {
+        this.chips.push({
+          field: h.name,
+          op: '=',
+          value: opt.id,
+          label: `${h.label}: ${opt.label}`,
+        });
+        this.openFilterField = null;
+        this.panelOpen = false;
+        this.m2oQuery[h.name] = '';
+        this.m2oResults[h.name] = [];
+        this.reload();
+      },
+      setGroupBy(name) {
+        this.groupBy = name;
+        this.panelOpen = false;
+        this.reload();
+      },
+      groupByLabel() {
+        const h = this.headers.find((item) => item.name === this.groupBy);
+        return h ? h.label : this.groupBy;
+      },
+    }));
+
     Alpine.data('loomListSelection', () => ({
       selected: [],
+      selectAllMatching: false,
+      total: 0,
+      pageFullySelected: false,
+      bulkOpen: false,
+      init() {
+        const root = this.$el;
+        this.total = Number(root?.getAttribute?.('data-loom-total') || 0);
+        this.$watch('selected', () => this.refreshPageState());
+        this.refreshPageState();
+      },
+      pageIds() {
+        return Array.from(document.querySelectorAll('[data-loom-record-id]'))
+          .map((row) => row.getAttribute('data-loom-record-id'))
+          .filter(Boolean)
+          .map(String);
+      },
+      refreshPageState() {
+        if (this.selectAllMatching) {
+          this.pageFullySelected = true;
+          return;
+        }
+        const ids = this.pageIds();
+        this.pageFullySelected =
+          ids.length > 0 && ids.every((id) => this.selected.includes(id));
+      },
       toggleId(id) {
+        this.selectAllMatching = false;
         const value = String(id);
         if (this.selected.includes(value)) {
           this.selected = this.selected.filter((item) => item !== value);
@@ -1256,15 +1464,42 @@
         }
       },
       toggleAll(checked) {
-        const ids = Array.from(document.querySelectorAll('[data-loom-record-id]'))
-          .map((row) => row.getAttribute('data-loom-record-id'))
-          .filter(Boolean)
-          .map(String);
+        this.selectAllMatching = false;
+        const ids = this.pageIds();
         this.selected = checked ? ids : [];
       },
+      selectAllInResultSet() {
+        this.selectAllMatching = true;
+        this.selected = this.pageIds();
+        this.pageFullySelected = true;
+      },
+      clearSelection() {
+        this.selectAllMatching = false;
+        this.selected = [];
+        this.pageFullySelected = false;
+      },
       submitBulk(url, action, confirmMessage) {
-        if (!this.selected.length) return;
-        if (confirmMessage && !window.confirm(confirmMessage)) return;
+        if (!this.selected.length && !this.selectAllMatching) return;
+        const countLabel = this.selectAllMatching ? this.total : this.selected.length;
+        const run = () => this.executeBulk(url, action);
+        if (confirmMessage) {
+          window.dispatchEvent(
+            new CustomEvent('loom-open-confirm', {
+              detail: {
+                title: 'Confirm',
+                message: String(confirmMessage).replace('%d', String(countLabel)),
+                variant: action === 'delete' ? 'danger' : 'primary',
+                confirmLabel: action === 'delete' ? 'Delete' : 'Confirm',
+                onConfirm: run,
+              },
+            }),
+          );
+          return;
+        }
+        run();
+      },
+      executeBulk(url, action) {
+        const root = this.$el;
         const form = document.createElement('form');
         form.method = 'post';
         form.action = url;
@@ -1281,12 +1516,29 @@
         actionInput.name = 'action';
         actionInput.value = action;
         form.appendChild(actionInput);
-        for (const id of this.selected) {
-          const input = document.createElement('input');
-          input.type = 'hidden';
-          input.name = 'ids';
-          input.value = id;
-          form.appendChild(input);
+        if (this.selectAllMatching) {
+          const selectAllInput = document.createElement('input');
+          selectAllInput.type = 'hidden';
+          selectAllInput.name = 'selectAll';
+          selectAllInput.value = '1';
+          form.appendChild(selectAllInput);
+          for (const key of ['search', 'sort', 'direction', 'trashed']) {
+            const value = root?.getAttribute?.(`data-loom-${key}`) || '';
+            if (!value || value === 'false' || value === 'undefined') continue;
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = key;
+            input.value = value;
+            form.appendChild(input);
+          }
+        } else {
+          for (const id of this.selected) {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'ids';
+            input.value = id;
+            form.appendChild(input);
+          }
         }
         document.body.appendChild(form);
         form.submit();
@@ -1297,6 +1549,10 @@
       open: false,
       loading: false,
       confirmMode: false,
+      promptMode: 'confirm',
+      promptVariant: 'danger',
+      confirmLabel: 'Confirm',
+      cancelLabel: 'Cancel',
       title: '',
       fullPageUrl: '',
       confirmAction: '',
@@ -1319,7 +1575,9 @@
       resourceSlug: '',
       dialogStack: [],
       currentEmbedUrl: '',
+      hasContentFooter: false,
       _previousFocus: null,
+      _confirmCallback: null,
 
       focusables() {
         const root = this.$refs.panel;
@@ -1350,22 +1608,115 @@
         this.$nextTick(() => {
           const items = this.focusables();
           const preferred =
-            this.$refs.body?.querySelector('input,select,textarea,button') ||
+            this.bodyEl()?.querySelector('input,select,textarea,button') ||
             this.$refs.closeBtn ||
             items[0];
           preferred?.focus?.();
         });
       },
 
-      mountBody(html) {
-        if (!this.$refs.body) return;
-        this.$refs.body.innerHTML = html;
-        if (typeof Alpine !== 'undefined' && Alpine.initTree) {
-          Alpine.initTree(this.$refs.body);
-        }
-        this.bindForm(this.$refs.body);
-        this.focusDialog();
+      panelEl() {
+        return this.$refs.panel || document.querySelector('.loom-dialog-panel') || null;
       },
+
+      bodyEl() {
+        const panel = this.panelEl();
+        if (panel) {
+          const fromPanel = panel.querySelector('[data-loom-dialog-body]');
+          if (fromPanel) return fromPanel;
+        }
+        return document.querySelector('.loom-dialog-panel [data-loom-dialog-body]');
+      },
+
+      footerEl() {
+        const panel = this.panelEl();
+        if (panel) {
+          const fromPanel = panel.querySelector('[data-loom-dialog-footer]');
+          if (fromPanel) return fromPanel;
+        }
+        return document.querySelector('.loom-dialog-panel [data-loom-dialog-footer]');
+      },
+
+      clearContentFooter() {
+        this.hasContentFooter = false;
+        const footer = this.footerEl();
+        if (footer) footer.innerHTML = '';
+      },
+
+      hoistDialogActions() {
+        const body = this.bodyEl();
+        const actions = body?.querySelector('[data-loom-dialog-actions]');
+        const footer = this.footerEl();
+        if (!actions || !footer) {
+          this.hasContentFooter = false;
+          return;
+        }
+        footer.innerHTML = '';
+        while (actions.firstChild) {
+          footer.appendChild(actions.firstChild);
+        }
+        actions.remove();
+        footer.querySelectorAll('[data-loom-dialog-close]').forEach((btn) => {
+          btn.addEventListener('click', () => this.close());
+        });
+        const form =
+          body.querySelector('form[data-loom-embed-form]') ||
+          body.querySelector('form[data-loom-embed-import]');
+        if (form?.id) {
+          footer.querySelectorAll('button[type="submit"]').forEach((btn) => {
+            if (!btn.getAttribute('form')) btn.setAttribute('form', form.id);
+          });
+        }
+        try {
+          if (typeof Alpine !== 'undefined' && Alpine.initTree) {
+            Alpine.initTree(footer);
+          }
+        } catch {
+          /* ignore */
+        }
+        this.hasContentFooter = true;
+      },
+
+      mountBody(html) {
+        this.clearContentFooter();
+        const body = this.bodyEl();
+        if (!body) return false;
+        body.innerHTML = typeof html === 'string' ? html : '';
+        try {
+          if (typeof Alpine !== 'undefined' && Alpine.initTree) {
+            Alpine.initTree(body);
+          }
+        } catch {
+          /* keep raw HTML */
+        }
+        this.hoistDialogActions();
+        this.bindForm(body);
+        this.focusDialog();
+        return true;
+      },
+
+      async mountBodyWhenReady(html) {
+        for (let attempt = 0; attempt < 10; attempt += 1) {
+          if (this.mountBody(html)) return true;
+          await this.$nextTick();
+          await new Promise((resolve) => requestAnimationFrame(resolve));
+        }
+        const panel = this.panelEl();
+        if (!panel) return false;
+        let body = panel.querySelector('[data-loom-dialog-body]');
+        if (!body) {
+          body = document.createElement('div');
+          body.setAttribute('data-loom-dialog-body', '');
+          const region = panel.querySelector('.loom-dialog-body');
+          (region || panel).appendChild(body);
+        }
+        body.innerHTML = typeof html === 'string' ? html : '';
+        this.hoistDialogActions();
+        this.bindForm(body);
+        this.focusDialog();
+        return true;
+      },
+
       init() {
         window.addEventListener('mousemove', (e) => {
           this.onDrag(e);
@@ -1412,10 +1763,13 @@
         }
         this.open = true;
         this.loading = true;
+        this.clearContentFooter();
         this.title = detail.title || 'Record';
         this.fullPageUrl = withoutEmbed(detail.url);
         this.resourceSlug = nextSlug;
         this.fullscreen = false;
+        this.width = 720;
+        this.height = 520;
         this.x = 0;
         this.y = 0;
         if (!replace) {
@@ -1425,13 +1779,25 @@
         const embedUrl = withEmbed(detail.url);
         this.currentEmbedUrl = embedUrl;
         await this.$nextTick();
+
+        let html = '';
         try {
-          const res = await fetch(embedUrl, { headers: csrfHeaders() });
-          const html = await res.text();
-          this.mountBody(html);
-        } finally {
-          this.loading = false;
+          const res = await fetch(embedUrl, {
+            headers: csrfHeaders({ Accept: 'text/html' }),
+            credentials: 'same-origin',
+          });
+          html = await res.text();
+          if (!res.ok) {
+            html = `<p class="text-sm text-fg-danger">Could not load dialog (${res.status}).</p>`;
+          }
+        } catch {
+          html = '<p class="text-sm text-fg-danger">Could not load dialog.</p>';
         }
+
+        this.loading = false;
+        await this.$nextTick();
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+        await this.mountBodyWhenReady(html);
       },
 
       async restoreDialog(stackItem) {
@@ -1440,14 +1806,23 @@
         this.resourceSlug = stackItem.resourceSlug;
         this.currentEmbedUrl = stackItem.url;
         _dialogOnResult = stackItem.onResult || null;
+        this.confirmMode = false;
         this.loading = true;
+        await this.$nextTick();
+        let html = '';
         try {
-          const res = await fetch(stackItem.url, { headers: csrfHeaders() });
-          this.mountBody(await res.text());
-        } finally {
-          this.loading = false;
-          this.confirmMode = false;
+          const res = await fetch(stackItem.url, {
+            headers: csrfHeaders({ Accept: 'text/html' }),
+            credentials: 'same-origin',
+          });
+          html = await res.text();
+        } catch {
+          html = '<p class="text-sm text-fg-danger">Could not load dialog.</p>';
         }
+        this.loading = false;
+        await this.$nextTick();
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+        await this.mountBodyWhenReady(html);
       },
 
       openConfirm(detail) {
@@ -1457,15 +1832,43 @@
         this.confirmMode = true;
         this.open = true;
         this.loading = false;
-        this.title = detail.title || 'Confirm';
+        this.clearContentFooter();
+        const mode = detail.mode === 'alert' || detail.mode === 'info' ? detail.mode : 'confirm';
+        const variant =
+          detail.variant ||
+          (mode === 'alert' || mode === 'info' ? 'info' : detail.color === 'danger' ? 'danger' : 'danger');
+        this.promptMode = mode === 'info' ? 'alert' : mode;
+        this.promptVariant = variant;
+        this.title =
+          detail.title ||
+          (this.promptMode === 'alert'
+            ? this.promptVariant === 'danger'
+              ? 'Alert'
+              : 'Notice'
+            : 'Confirm');
         this.confirmMessage = detail.message || 'Are you sure?';
         this.confirmAction = detail.action || '';
+        this._confirmCallback = typeof detail.onConfirm === 'function' ? detail.onConfirm : null;
+        this.confirmLabel =
+          detail.confirmLabel ||
+          (this.promptMode === 'alert' ? 'OK' : detail.variant === 'danger' ? 'Delete' : 'Confirm');
+        this.cancelLabel = detail.cancelLabel || 'Cancel';
         this.fullPageUrl = '';
         this.fullscreen = false;
+        this.width = 420;
+        this.height = 240;
         this.x = 0;
         this.y = 0;
         document.body.classList.add('overflow-hidden');
         this.focusDialog();
+      },
+
+      confirmButtonClass() {
+        const base = '';
+        if (this.promptVariant === 'danger') return 'bg-fg-danger';
+        if (this.promptVariant === 'warning') return 'bg-warning-strong';
+        if (this.promptVariant === 'success') return 'bg-success-strong';
+        return 'bg-fg-brand';
       },
 
       close() {
@@ -1473,11 +1876,12 @@
         this.confirmMode = false;
         this.fullscreen = false;
         this.dialogStack = [];
+        this._confirmCallback = null;
         _dialogOnResult = null;
         this.currentEmbedUrl = '';
-        if (this.$refs.body) {
-          this.$refs.body.innerHTML = '';
-        }
+        this.clearContentFooter();
+        const body = this.bodyEl();
+        if (body) body.innerHTML = '';
         document.body.classList.remove('overflow-hidden');
         const prev = this._previousFocus;
         this._previousFocus = null;
@@ -1524,11 +1928,18 @@
       },
 
       bindForm(root) {
+        const importForm = root.querySelector('form[data-loom-embed-import]');
+        if (importForm) {
+          this.bindImportForm(importForm);
+          return;
+        }
         const form = root.querySelector('form[data-loom-embed-form]');
         if (!form) return;
         form.addEventListener('submit', async (event) => {
           event.preventDefault();
-          const submitBtn = form.querySelector('[type="submit"]');
+          const submitBtn =
+            this.footerEl()?.querySelector('[type="submit"]') ||
+            form.querySelector('[type="submit"]');
           if (submitBtn) submitBtn.disabled = true;
           try {
             const body = new URLSearchParams(new FormData(form));
@@ -1559,6 +1970,68 @@
             showToast('error', {
               title: 'Could not save',
               message: 'Please check the form and try again.',
+            });
+          } finally {
+            if (submitBtn) submitBtn.disabled = false;
+          }
+        });
+      },
+
+      bindImportForm(form) {
+        form.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const submitBtn =
+            this.footerEl()?.querySelector('[type="submit"]') ||
+            form.querySelector('[type="submit"]');
+          if (submitBtn) submitBtn.disabled = true;
+          try {
+            const body = new URLSearchParams(new FormData(form));
+            if (!body.has('_csrf')) {
+              const token = csrfToken();
+              if (token) body.set('_csrf', token);
+            }
+            body.set('_loom_embed', '1');
+            const res = await fetch(form.action, {
+              method: 'POST',
+              headers: csrfHeaders({
+                'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                Accept: 'application/json',
+              }),
+              body,
+            });
+            const payload = await res.json().catch(() => null);
+            if (!res.ok || !payload) {
+              showToast('error', {
+                title: 'Import failed',
+                message: 'Could not import the CSV file.',
+              });
+              return;
+            }
+            const created = Number(payload.created || 0);
+            const failed = Number(payload.failed || 0);
+            if (created > 0 && failed === 0) {
+              showToast('success', {
+                title: 'Import complete',
+                message: `Created ${created} record(s).`,
+              });
+            } else if (created > 0) {
+              showToast('warning', {
+                title: 'Import finished with errors',
+                message: `Created ${created}, failed ${failed}.`,
+              });
+            } else {
+              showToast('error', {
+                title: 'Import failed',
+                message: (payload.errors && payload.errors[0]) || 'No rows were imported.',
+              });
+              return;
+            }
+            this.close();
+            window.location.reload();
+          } catch {
+            showToast('error', {
+              title: 'Import failed',
+              message: 'Could not import the CSV file.',
             });
           } finally {
             if (submitBtn) submitBtn.disabled = false;
@@ -1638,8 +2111,11 @@
             if (flash) showToast(flash);
             this.loading = true;
             try {
-              const res = await fetch(url.pathname + url.search);
-              this.mountBody(await res.text());
+              const res = await fetch(url.pathname + url.search, {
+                headers: csrfHeaders({ Accept: 'text/html' }),
+                credentials: 'same-origin',
+              });
+              await this.mountBodyWhenReady(await res.text());
             } finally {
               this.loading = false;
             }
@@ -1698,7 +2174,17 @@
       },
 
       submitConfirm() {
-        if (!this.confirmAction) return;
+        if (this._confirmCallback) {
+          const callback = this._confirmCallback;
+          this._confirmCallback = null;
+          this.close();
+          callback();
+          return;
+        }
+        if (this.promptMode === 'alert' || !this.confirmAction) {
+          this.close();
+          return;
+        }
         const form = document.createElement('form');
         form.method = 'post';
         form.action = this.confirmAction;

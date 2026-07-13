@@ -5,6 +5,11 @@
   data-loom-base-path="{{basePath}}"
   data-loom-current-view="table"
   data-loom-has-kanban="{{#if resource.hasKanban}}true{{else}}false{{/if}}"
+  data-loom-total="{{result.total}}"
+  data-loom-search="{{query.search}}"
+  data-loom-sort="{{query.sort}}"
+  data-loom-direction="{{query.direction}}"
+  data-loom-trashed="{{query.trashed}}"
 >
   <div class="loom-card rounded-xl overflow-hidden">
     {{> list-toolbar}}
@@ -30,12 +35,12 @@
               <th class="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-body-subtle whitespace-nowrap">
                 {{#if sortable}}
                   <a
-                    href="{{sortColumnUrl ../../basePath ../../resource.slug ../../query name}}"
+                    href="{{sortColumnUrl @root.basePath @root.resource.slug @root.query name}}"
                     class="inline-flex items-center gap-1 hover:text-heading transition-colors"
                   >
                     {{label}}
-                    {{#if (eq ../../query.sort name)}}
-                      <svg class="w-3 h-3 text-fg-brand {{#if (eq ../../query.direction 'desc')}}rotate-180{{/if}}" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                    {{#if (eq @root.query.sort name)}}
+                      <svg class="w-3 h-3 text-fg-brand {{#if (eq @root.query.direction 'desc')}}rotate-180{{/if}}" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5"/>
                       </svg>
                     {{/if}}
@@ -45,101 +50,95 @@
                 {{/if}}
               </th>
             {{/each}}
-            {{#if (or (not @root.abilities) @root.abilities.canView @root.abilities.canEdit @root.abilities.canDelete)}}
+            {{#if (or (not @root.abilities) @root.abilities.canView @root.abilities.canEdit @root.abilities.canDelete recordActions.length)}}
               <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-body-subtle">Actions</th>
             {{/if}}
           </tr>
         </thead>
-        <tbody>
-          {{#each result.items}}
-            <tr class="hover:bg-surface-row-hover transition-colors" data-loom-record-id="{{this.id}}">
-              {{#if ../bulkEnabled}}
-              <td class="px-3 py-3">
-                <input
-                  type="checkbox"
-                  class="rounded border-default text-fg-brand focus:ring-fg-brand/30"
-                  value="{{this.id}}"
-                  :checked="selected.includes('{{this.id}}')"
-                  @change="toggleId('{{this.id}}')"
-                  aria-label="Select row"
-                />
-              </td>
-              {{else}}
-              <td class="px-3 py-3"></td>
-              {{/if}}
-              {{#each ../resource.columns}}
-                <td class="px-4 py-3 text-body">
-                  {{#if (eq type 'boolean')}}
-                    <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium {{#if (lookup ../this name)}}bg-success-soft text-success-strong{{else}}bg-badge-neutral text-body-subtle{{/if}}">
-                      {{cellValue .. this}}
-                    </span>
-                  {{else}}
-                    {{#if (eq ../../resource.presentation.detail 'modal')}}
-                      <button
-                        type="button"
-                        class="text-heading hover:text-fg-brand hover:underline text-left"
-                        {{#if (or (not @root.abilities) @root.abilities.canView)}}
-                          @click="$dispatch('loom-open-dialog', { url: '{{../../basePath}}/{{../../resource.slug}}/{{../this.id}}', title: 'View record', slug: '{{../../resource.slug}}' })"
-                        {{else}}
-                          disabled
-                        {{/if}}
-                      >{{cellValue .. this}}</button>
-                    {{else}}
-                      {{#if (or (not @root.abilities) @root.abilities.canView)}}
-                        <a href="{{../../basePath}}/{{../../resource.slug}}/{{../this.id}}" class="text-heading hover:text-fg-brand hover:underline">{{cellValue .. this}}</a>
-                      {{else}}
-                        <span class="text-heading">{{cellValue .. this}}</span>
-                      {{/if}}
-                    {{/if}}
-                  {{/if}}
+        {{#if groups}}
+          {{#each groups}}
+            <tbody class="divide-y divide-default" x-data="{ open: true }">
+              <tr class="bg-neutral-tertiary/60 cursor-pointer select-none hover:bg-neutral-tertiary" @click="open = !open">
+                <td class="px-4 py-3 text-xs font-semibold text-heading" colspan="100">
+                  <span class="inline-flex items-center gap-2">
+                    <svg class="w-3 h-3 text-body-subtle transition-transform" :class="{ 'rotate-90': open }" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/>
+                    </svg>
+                    <span>{{label}}</span>
+                    <span class="font-normal text-body-subtle">({{items.length}})</span>
+                  </span>
                 </td>
-              {{/each}}
-              {{#if (or (not @root.abilities) @root.abilities.canView @root.abilities.canEdit @root.abilities.canDelete)}}
-              <td class="px-4 py-3 text-right">
-                <div class="inline-flex items-center gap-1 text-xs">
-                  {{#if (or (not @root.abilities) @root.abilities.canView)}}
-                    {{#if (eq ../resource.presentation.detail 'modal')}}
-                      <button type="button" class="px-2 py-1 rounded-md text-fg-brand hover:bg-surface-hover" @click="$dispatch('loom-open-dialog', { url: '{{../basePath}}/{{../resource.slug}}/{{this.id}}', title: 'View record', slug: '{{../resource.slug}}' })">View</button>
-                    {{else}}
-                      <a href="{{../basePath}}/{{../resource.slug}}/{{this.id}}" class="px-2 py-1 rounded-md text-fg-brand hover:bg-surface-hover">View</a>
-                    {{/if}}
-                  {{/if}}
-                  {{#if (or (not @root.abilities) @root.abilities.canEdit)}}
-                    {{#if (eq ../resource.presentation.form 'modal')}}
-                      <button type="button" class="px-2 py-1 rounded-md text-body hover:bg-surface-hover" @click="$dispatch('loom-open-dialog', { url: '{{../basePath}}/{{../resource.slug}}/{{this.id}}/edit', title: 'Edit record', slug: '{{../resource.slug}}' })">Edit</button>
-                    {{else}}
-                      <a href="{{../basePath}}/{{../resource.slug}}/{{this.id}}/edit" class="px-2 py-1 rounded-md text-body hover:bg-surface-hover">Edit</a>
-                    {{/if}}
-                  {{/if}}
-                  {{#if @root.trashed}}
-                    {{#if (or (not @root.abilities) @root.abilities.canEdit)}}
-                      <form method="post" action="{{../basePath}}/{{../resource.slug}}/{{this.id}}/restore" class="inline">
-                        {{> csrf}}
-                        <button type="submit" class="px-2 py-1 rounded-md text-fg-brand hover:bg-surface-hover">Restore</button>
-                      </form>
-                    {{/if}}
+              </tr>
+              {{#each items}}
+                <tr class="hover:bg-surface-row-hover transition-colors" data-loom-record-id="{{id}}" x-show="open" x-cloak>
+                  {{#if @root.bulkEnabled}}
+                  <td class="px-3 py-3">
+                    <input
+                      type="checkbox"
+                      class="rounded border-default text-fg-brand focus:ring-fg-brand/30"
+                      value="{{id}}"
+                      :checked="selected.includes('{{id}}')"
+                      @change="toggleId('{{id}}')"
+                      aria-label="Select row"
+                    />
+                  </td>
                   {{else}}
-                  {{#if (or (not @root.abilities) @root.abilities.canDelete)}}
-                    <button
-                      type="button"
-                      class="px-2 py-1 rounded-md text-fg-danger hover:bg-danger-soft"
-                      @click="$dispatch('loom-open-confirm', { title: 'Delete record?', message: 'This action cannot be undone.', action: '{{../basePath}}/{{../resource.slug}}/{{this.id}}/delete' })"
-                    >Delete</button>
+                  <td class="px-3 py-3"></td>
                   {{/if}}
-                  {{/if}}
-                </div>
-              </td>
-              {{/if}}
-            </tr>
+                  {{#each @root.resource.columns}}
+                    <td class="px-4 py-3 text-body">
+                      {{#if (eq type 'boolean')}}
+                        <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium {{#if (lookup ../this name)}}bg-success-soft text-success-strong{{else}}bg-badge-neutral text-body-subtle{{/if}}">
+                          {{cellValue .. this}}
+                        </span>
+                      {{else}}
+                        {{#if (eq @root.resource.presentation.detail 'modal')}}
+                          <button
+                            type="button"
+                            class="text-heading hover:text-fg-brand hover:underline text-left"
+                            {{#if (or (not @root.abilities) @root.abilities.canView)}}
+                              @click="$dispatch('loom-open-dialog', { url: '{{@root.basePath}}/{{@root.resource.slug}}/{{../id}}', title: 'View record', slug: '{{@root.resource.slug}}' })"
+                            {{else}}
+                              disabled
+                            {{/if}}
+                          >{{cellValue .. this}}</button>
+                        {{else}}
+                          {{#if (or (not @root.abilities) @root.abilities.canView)}}
+                            <a href="{{@root.basePath}}/{{@root.resource.slug}}/{{../id}}" class="text-heading hover:text-fg-brand hover:underline">{{cellValue .. this}}</a>
+                          {{else}}
+                            <span class="text-heading">{{cellValue .. this}}</span>
+                          {{/if}}
+                        {{/if}}
+                      {{/if}}
+                    </td>
+                  {{/each}}
+                  {{> list-row-actions}}
+                </tr>
+              {{/each}}
+            </tbody>
           {{else}}
-            <tr>
-              <td colspan="100" class="px-4 py-12 text-center text-body-subtle">No records found.</td>
-            </tr>
+            <tbody>
+              <tr>
+                <td colspan="100" class="px-4 py-12 text-center text-body-subtle">No records found.</td>
+              </tr>
+            </tbody>
           {{/each}}
-        </tbody>
+        {{else}}
+          <tbody>
+            {{#each result.items}}
+              {{> list-row}}
+            {{else}}
+              <tr>
+                <td colspan="100" class="px-4 py-12 text-center text-body-subtle">No records found.</td>
+              </tr>
+            {{/each}}
+          </tbody>
+        {{/if}}
       </table>
     </div>
   </div>
 
-  {{> pagination}}
+  {{#if pagination}}
+    {{> pagination}}
+  {{/if}}
 </section>

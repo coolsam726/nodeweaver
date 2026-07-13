@@ -23,7 +23,12 @@
       </dl>
     </section>
   {{/each}}
-  <div class="flex justify-end gap-2 pt-1">
+  <div data-loom-dialog-actions>
+    <button
+      type="button"
+      data-loom-dialog-close
+      class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border border-default text-body rounded-md hover:bg-surface-hover transition"
+    >Close</button>
     {{#if (or (not abilities) abilities.canEdit)}}
     <button
       type="button"

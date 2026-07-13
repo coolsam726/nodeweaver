@@ -30,7 +30,15 @@
     <div class="flex flex-wrap items-center gap-2 shrink-0">
       {{> list-view-switcher}}
       {{#each headerActions}}
-        <a href="{{url}}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border border-default text-body rounded-md hover:bg-surface-hover transition">{{label}}</a>
+        {{#if (eq name 'import')}}
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border border-default text-body rounded-md hover:bg-surface-hover transition"
+            @click="$dispatch('loom-open-dialog', { url: '{{url}}', title: 'Import {{../resource.label}}', slug: '{{../resource.slug}}' })"
+          >{{label}}</button>
+        {{else}}
+          <a href="{{url}}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border border-default text-body rounded-md hover:bg-surface-hover transition">{{label}}</a>
+        {{/if}}
       {{/each}}
       {{#if showCreateButton}}
         {{#if (eq resource.presentation.form 'modal')}}

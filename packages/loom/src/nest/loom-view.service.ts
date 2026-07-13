@@ -97,9 +97,9 @@ export class LoomViewService {
       }
       return options?.hash?.fallback ?? String(key ?? '');
     });
-    Handlebars.registerHelper('json', (value: unknown) => JSON.stringify(value));
+    Handlebars.registerHelper('json', (value: unknown) => JSON.stringify(value ?? null));
     Handlebars.registerHelper('jsonAttr', (value: unknown) => {
-      return JSON.stringify(value)
+      return JSON.stringify(value ?? null)
         .replace(/&/g, '&amp;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;')
