@@ -108,6 +108,7 @@ function infraVolumeNames(options: ScaffoldOptions): string[] {
   if (options.database === 'mongodb') volumes.push('mongodb_data');
   if (options.database === 'sqlite') volumes.push('sqlite_data');
   if (options.queues) volumes.push('redis_data');
+  if (options.admin) volumes.push('loom_uploads');
 
   return volumes;
 }
@@ -165,6 +166,8 @@ function appEnvironment(options: ScaffoldOptions): string[] {
     lines.push('      LOOM_ADMIN_EMAIL: admin@example.com');
     lines.push('      LOOM_ADMIN_PASSWORD: password');
     lines.push('      LOOM_ADMIN_NAME: Admin');
+    lines.push('      LOOM_BASE_PATH: ${LOOM_BASE_PATH:-/admin}');
+    lines.push('      LOOM_UPLOADS_DIR: /app/uploads');
   }
 
   return lines;
@@ -179,6 +182,10 @@ function appVolumes(options: ScaffoldOptions): string[] {
 
   if (options.database === 'sqlite') {
     lines.push('      - sqlite_data:/app/data');
+  }
+
+  if (options.admin) {
+    lines.push('      - loom_uploads:/app/uploads');
   }
 
   return lines;

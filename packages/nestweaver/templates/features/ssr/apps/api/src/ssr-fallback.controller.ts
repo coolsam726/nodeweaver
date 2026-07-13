@@ -9,6 +9,17 @@ export function setSsrListener(listener: SsrListener): void {
   ssrListener = listener;
 }
 
+function isNestOwnedPath(path: string): boolean {
+  const normalized = (path.split('?')[0] ?? '').replace(/\/$/, '') || '/';
+  const loomBase = (process.env.LOOM_BASE_PATH || '/admin').replace(/\/$/, '') || '/admin';
+  return (
+    normalized === '/api' ||
+    normalized.startsWith('/api/') ||
+    normalized === loomBase ||
+    normalized.startsWith(`${loomBase}/`)
+  );
+}
+
 @Controller()
 export class SsrFallbackController {
   @All('*')
@@ -18,7 +29,7 @@ export class SsrFallbackController {
     @Next() next: NextFunction,
   ): void {
     const path = req.path ?? req.url ?? '';
-    if (path.startsWith('/api') || path.startsWith('/admin') || !ssrListener) {
+    if (isNestOwnedPath(path) || !ssrListener) {
       return next();
     }
 

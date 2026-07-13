@@ -1,33 +1,38 @@
 import type { ScaffoldOptions } from '../types.js';
 
-const BASE_ALLOW_BUILDS = [
-  '@parcel/watcher',
-  'esbuild',
-  'unrs-resolver',
-] as const;
+/** Packages allowed (true) or explicitly denied (false) for pnpm build scripts. */
+const BASE_ALLOW_BUILDS: Record<string, boolean> = {
+  '@parcel/watcher': true,
+  esbuild: true,
+  'unrs-resolver': true,
+  // Telemetry / polyfill scripts pulled transitively by Swagger UI / Redoc (Loom docs).
+  // Explicit false avoids ERR_PNPM_IGNORED_BUILDS when CI uses frozen installs.
+  '@scarf/scarf': false,
+  'core-js': false,
+};
 
 export function generatePnpmWorkspace(options: ScaffoldOptions): string {
-  const allowBuilds = new Set<string>(BASE_ALLOW_BUILDS);
+  const allowBuilds: Record<string, boolean> = { ...BASE_ALLOW_BUILDS };
 
   if (options.orm === 'prisma') {
-    allowBuilds.add('@prisma/client');
-    allowBuilds.add('@prisma/engines');
-    allowBuilds.add('prisma');
+    allowBuilds['@prisma/client'] = true;
+    allowBuilds['@prisma/engines'] = true;
+    allowBuilds.prisma = true;
   }
 
   if (
     options.database === 'sqlite' &&
     (options.orm === 'drizzle' || options.orm === 'typeorm')
   ) {
-    allowBuilds.add('better-sqlite3');
+    allowBuilds['better-sqlite3'] = true;
   }
 
   if (options.queues) {
-    allowBuilds.add('msgpackr-extract');
+    allowBuilds['msgpackr-extract'] = true;
   }
 
   if (options.frontend === 'angular') {
-    allowBuilds.add('lmdb');
+    allowBuilds.lmdb = true;
   }
 
   const lines = [
@@ -36,9 +41,9 @@ export function generatePnpmWorkspace(options: ScaffoldOptions): string {
     "  - 'packages/*'",
     '',
     'allowBuilds:',
-    ...[...allowBuilds]
+    ...Object.keys(allowBuilds)
       .sort()
-      .map((pkg) => `  '${pkg}': true`),
+      .map((pkg) => `  '${pkg}': ${allowBuilds[pkg]}`),
     '',
   ];
 

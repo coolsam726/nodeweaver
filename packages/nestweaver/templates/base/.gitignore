@@ -6,4 +6,5 @@ coverage
 *.log
 .env
 .DS_Store
+uploads
 data

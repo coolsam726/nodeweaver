@@ -53,6 +53,10 @@ export function generateEnvExample(options: ScaffoldOptions): string {
     lines.push('LOOM_ADMIN_EMAIL=admin@example.com');
     lines.push('LOOM_ADMIN_PASSWORD=password');
     lines.push('LOOM_ADMIN_NAME=Admin');
+    lines.push('# Must match LoomModule.forRootAsync({ basePath }) — used by the web proxy / SPA fallback');
+    lines.push('LOOM_BASE_PATH=/admin');
+    lines.push('# Local media uploads for FileField / ImageField');
+    lines.push('LOOM_UPLOADS_DIR=./uploads');
     lines.push('');
   }
 

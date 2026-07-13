@@ -118,7 +118,7 @@ export class LoomAuthInterceptor implements NestInterceptor {
           req.method === 'GET' &&
           (pathname.endsWith('/login') || pathname === this.auth.loginPath)
         ) {
-          const base = pathname.replace(/\/login$/, '') || '/admin';
+          const base = this.auth.loginPath.replace(/\/login$/, '') || '/admin';
           redirect(res, base);
           return of(undefined);
         }

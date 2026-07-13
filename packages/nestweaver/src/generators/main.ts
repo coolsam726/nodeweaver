@@ -12,6 +12,18 @@ function webDevTarget(): string {
     process.env.WEB_DEV_URL ??
     'http://127.0.0.1:${WEB_DEV_DEFAULT_PORT}'
   );
+}
+
+/** API + Loom admin. Keep LOOM_BASE_PATH in sync with LoomModule.forRootAsync({ basePath }). */
+function isNestOwnedPath(url: string): boolean {
+  const path = (url.split('?')[0] ?? '').replace(/\/$/, '') || '/';
+  const loomBase = (process.env.LOOM_BASE_PATH || '/admin').replace(/\/$/, '') || '/admin';
+  return (
+    path === '/api' ||
+    path.startsWith('/api/') ||
+    path === loomBase ||
+    path.startsWith(\`\${loomBase}/\`)
+  );
 }`;
 
 export function generateMain(options: ScaffoldOptions): string {
@@ -71,7 +83,7 @@ async function bootstrap() {
     const expressApp = app.getHttpAdapter().getInstance();
     expressApp.use((req: Request, res: Response, next: NextFunction) => {
       const url = req.originalUrl ?? req.url ?? '';
-      if (url.startsWith('/api') || url.startsWith('/admin')) {
+      if (isNestOwnedPath(url)) {
         return next();
       }
 
@@ -396,7 +408,7 @@ async function bootstrap() {
     const expressApp = app.getHttpAdapter().getInstance();
     expressApp.use((req: Request, res: Response, next: NextFunction) => {
       const url = req.originalUrl ?? req.url ?? '';
-      if (url.startsWith('/api') || url.startsWith('/admin')) {
+      if (isNestOwnedPath(url)) {
         return next();
       }
 
@@ -507,7 +519,7 @@ async function bootstrap() {
     await ensureMiddie(fastify);
     fastify.use((req: Request, res: Response, next: NextFunction) => {
       const url = req.originalUrl ?? req.url ?? '';
-      if (url.startsWith('/api') || url.startsWith('/admin')) {
+      if (isNestOwnedPath(url)) {
         return next();
       }
 
@@ -617,7 +629,7 @@ async function bootstrap() {
     await ensureMiddie(fastify);
     fastify.use((req: Request, res: Response, next: NextFunction) => {
       const url = req.originalUrl ?? req.url ?? '';
-      if (url.startsWith('/api') || url.startsWith('/admin')) {
+      if (isNestOwnedPath(url)) {
         return next();
       }
 

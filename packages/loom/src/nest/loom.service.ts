@@ -155,6 +155,35 @@ export class LoomService {
     return Boolean(api.openapi);
   }
 
+  /**
+   * Interactive docs mode when OpenAPI is on.
+   * `false` = spec only; `'both'` = Swagger `/docs` + Redoc `/redoc`.
+   */
+  get openapiDocsMode(): false | 'swagger' | 'redoc' | 'both' {
+    if (!this.openapiEnabled) return false;
+    const api = this.options.api;
+    if (api && typeof api === 'object' && api.openapi && typeof api.openapi === 'object') {
+      const docs = api.openapi.docs;
+      if (docs === false) return false;
+      if (docs === 'swagger' || docs === 'redoc') return docs;
+    }
+    return 'both';
+  }
+
+  get openapiDocsEnabled(): boolean {
+    return this.openapiDocsMode !== false;
+  }
+
+  get openapiSwaggerEnabled(): boolean {
+    const mode = this.openapiDocsMode;
+    return mode === 'swagger' || mode === 'both';
+  }
+
+  get openapiRedocEnabled(): boolean {
+    const mode = this.openapiDocsMode;
+    return mode === 'redoc' || mode === 'both';
+  }
+
   get storageEnabled(): boolean {
     return Boolean(this.storage);
   }
@@ -186,6 +215,14 @@ export class LoomService {
       const resourceClass = this.registry.resourceClass(meta.slug);
       return resourceClass?.canAccess?.(user) ?? resourceClass?.canViewAny?.(user) ?? true;
     });
+  }
+
+  /**
+   * Full resource catalog for OpenAPI / docs.
+   * Live JSON routes still enforce RBAC; the schema is intentionally public when OpenAPI is on.
+   */
+  documentedResources(): ResourceMeta[] {
+    return this.registry.all();
   }
 
   /** Session user for API responses (no secrets). */

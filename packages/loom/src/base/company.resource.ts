@@ -4,8 +4,7 @@ import {
   DateTimeColumn,
   EmailField,
   IdColumn,
-  PasswordField,
-  RelationField,
+  ImageField,
   Resource,
   KanbanBuilder,
   Schema,
@@ -41,6 +40,7 @@ export abstract class CompanyResourceBase extends Resource {
         TextField.make('code').searchable().placeholder('ACME'),
         EmailField.make('email'),
         TextField.make('phone'),
+        ImageField.make('logo').label('Logo').columnSpanFull(),
         BooleanField.make('active').label('Active').inline(),
       );
     return schema.build();
@@ -67,6 +67,7 @@ export abstract class CompanyResourceBase extends Resource {
         TextColumn.make('code'),
         TextColumn.make('email'),
         TextColumn.make('phone'),
+        TextColumn.make('logo'),
         BooleanColumn.make('active'),
         DateTimeColumn.make('createdAt'),
       )

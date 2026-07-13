@@ -4,8 +4,9 @@ export interface LoomSecurityHeadersConfig {
   /** Default `true` when `securityHeaders` is enabled. */
   enabled?: boolean;
   /**
-   * Content-Security-Policy value. Default: Loom-compatible baseline (Alpine CDN +
-   * inline theme boot script). Set `false` to omit CSP.
+   * Content-Security-Policy value. Default: Loom-compatible baseline (vendored
+   * Alpine + inline theme boot script; includes `unsafe-eval` for Alpine).
+   * Set `false` to omit CSP.
    */
   contentSecurityPolicy?: string | false;
   /** Emit CSP as `Content-Security-Policy-Report-Only` instead of enforcing. */
@@ -53,8 +54,8 @@ function hostFromUrl(url: string): string | null {
 
 /**
  * Baseline CSP that works with Loom's bundled admin UI (inline theme script,
- * Alpine from jsDelivr, same-origin assets). Tighten further with nonces or
- * self-hosted Alpine when you need stricter policies.
+ * Alpine from jsDelivr — which requires `unsafe-eval` — and same-origin assets).
+ * Tighten further with nonces or self-hosted Alpine when you need stricter policies.
  */
 export function defaultLoomContentSecurityPolicy(
   branding?: Partial<LoomBranding>,
@@ -66,7 +67,9 @@ export function defaultLoomContentSecurityPolicy(
 
   return [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+    // Alpine evaluates expressions via Function(); local build still needs unsafe-eval.
+    // CDN is not used — Alpine is served from {basePath}/assets/alpine.min.js.
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
     `style-src ${styleSrc}`,
     "img-src 'self' data: blob: https:",
     "font-src 'self' data: https:",

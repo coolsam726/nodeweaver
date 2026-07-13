@@ -1,7 +1,7 @@
 {
   "name": "nestweaver",
   "private": true,
-  "description": "Scaffold NestJS + multi-frontend monorepos with batteries included",
+  "description": "NestJS fullstack scaffolder with Loom declarative admin",
   "packageManager": "pnpm@11.10.0",
   "engines": {
     "node": ">=20"

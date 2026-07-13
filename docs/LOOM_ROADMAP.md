@@ -69,12 +69,15 @@ Until Critical + High are done, treat Loom as **beta / early admin**, not a prod
 
 ## 1.0 exit criteria
 
-- [ ] All **Critical** and **High** issues closed (or explicitly deferred with README callouts)
-- [ ] CI runs Loom tests
+- [x] All **Critical** and **High** issues closed (Waves 1–2)
+- [x] Waves 3–4 closed (soft deletes, media, audit, bulk/export, OpenAPI, CSP, deprecations)
+- [x] CI runs Loom tests (`pnpm test` includes `@nestweaver/loom test`)
 - [x] Production scaffold creates ACL tables without `synchronize: true`
 - [x] Auth fail-closed in production without secret
 - [x] Sessions revocable; login rate-limited; CSRF covered
-- [x] Docs match shipped behavior (Wave 1)
+- [x] Docs match shipped behavior (ongoing polish)
+
+**Remaining for the 1.0 *release*:** npm publish + version bump — see [LOOM_1_0.md](./LOOM_1_0.md).
 
 ## Suggested implementation order inside Wave 1
 
@@ -104,3 +107,5 @@ Also shipped in Wave 2 PR: [#15](https://github.com/coolsam726/nestweaver/issues
 Wave 3: _(complete)_ — [#21](https://github.com/coolsam726/nestweaver/issues/21)–[#28](https://github.com/coolsam726/nestweaver/issues/28) including soft deletes, a11y focus, i18n, relation perf (PR #41).
 
 Wave 4: _(complete)_ — [#29](https://github.com/coolsam726/nestweaver/issues/29)–[#34](https://github.com/coolsam726/nestweaver/issues/34): media/storage, audit hooks, bulk UI + export, API versioning + OpenAPI, security headers, deprecation warnings.
+
+**Next:** ship Loom **1.0** — [readiness checklist](./LOOM_1_0.md). Feature work after that is post-1.0 (S3 adapter, audit UI resource, stricter CSP, OpenAPI-typed frontend clients).

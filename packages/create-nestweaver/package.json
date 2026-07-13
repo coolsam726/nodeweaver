@@ -1,7 +1,7 @@
 {
   "name": "create-nestweaver",
   "version": "0.1.0",
-  "description": "Create a NestJS + multi-frontend monorepo with nestweaver",
+  "description": "Create a NestJS fullstack monorepo with Loom admin via nestweaver",
   "type": "module",
   "bin": {
     "create-nestweaver": "./dist/index.js"

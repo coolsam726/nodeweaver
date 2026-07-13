@@ -32,3 +32,23 @@ export function loomAdminCssPath(): string {
 export function loomUiJsPath(): string {
   return join(loomAssetsDir(), 'loom-ui.js');
 }
+
+export function loomAlpineJsPath(): string {
+  return join(loomAssetsDir(), 'alpine.min.js');
+}
+
+export function loomSwaggerUiDir(): string {
+  return join(loomAssetsDir(), 'swagger-ui');
+}
+
+export function loomSwaggerUiBundlePath(): string {
+  return join(loomSwaggerUiDir(), 'swagger-ui-bundle.js');
+}
+
+export function loomSwaggerUiCssPath(): string {
+  return join(loomSwaggerUiDir(), 'swagger-ui.css');
+}
+
+export function loomRedocStandalonePath(): string {
+  return join(loomAssetsDir(), 'redoc', 'redoc.standalone.js');
+}

@@ -1,8 +1,10 @@
 # @nestweaver/loom
 
-**Declarative admin panel for NestJS** — part of the [nestweaver](https://github.com/coolsam726/nuxest) ecosystem.
+**Declarative admin for NestJS** — the flagship of [nestweaver](https://github.com/coolsam726/nestweaver): fullstack scaffolding plus a production-minded admin you drop into the same app.
 
-Loom turns your models into a full CRUD admin at `/admin`: Filament-style resources, list and kanban views, modal forms, relation widgets, cookie auth, and string-based RBAC. It ships ORM adapters for **TypeORM**, **Prisma**, **Drizzle**, and **Mongoose**.
+Loom turns your models into a full CRUD admin at `/admin`: Filament-style resources, list and kanban views, modal forms, relation widgets, cookie auth, string-based RBAC, company tenancy, media fields, audit hooks, and a versioned JSON API. It ships ORM adapters for **TypeORM**, **Prisma**, **Drizzle**, and **Mongoose**.
+
+**1.0 readiness:** [docs/LOOM_1_0.md](../../docs/LOOM_1_0.md) · [roadmap](../../docs/LOOM_ROADMAP.md)
 
 | Stack | Role |
 |-------|------|
@@ -143,6 +145,29 @@ Inject tokens by ORM:
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `basePath` | `string` | `'/admin'` | Admin URL prefix |
+
+When using **`LoomModule.forRootAsync`**, pass `basePath` and `api` as **top-level sync options** (alongside `useFactory`). Nest registers controllers before the factory runs, so a `basePath` only inside the factory leaves the panel mounted at `/admin` while HTML links use your custom path (broken assets).
+
+```typescript
+LoomModule.forRootAsync({
+  basePath: '/app',                    // ← sync — owns the Nest route
+  api: { version: 'v1', openapi: true },
+  inject: [getConnectionToken()],
+  useFactory: (connection) => ({
+    orm: 'mongoose',
+    dataSource: connection,
+    resources: […],
+    storage: {
+      disk: 'local',
+      root: './uploads',
+      publicUrlPrefix: '/app/media', // keep in sync with basePath
+    },
+    auth: { secret: process.env.LOOM_AUTH_SECRET! },
+  }),
+})
+```
+
+`forRoot({ basePath: '/app', … })` works as usual — options are available when the controller is created.
 | `branding` | `Partial<LoomBranding>` | defaults + env | Panel name, colors, logos, fonts |
 | `title` | `string` | — | **Deprecated** — use `branding.brandName` |
 | `orm` | `'typeorm' \| 'prisma' \| 'drizzle' \| 'mongoose'` | — | Selects adapter + ACL store |
@@ -151,7 +176,7 @@ Inject tokens by ORM:
 | `resources` | `ResourceClass[]` | `[]` | Registered resources |
 | `auth` | `LoomAuthOptions` | — | Cookie sessions + RBAC when `secret` is set |
 | `allowAnonymousAdmin` | `boolean` | `false` | Opt out of production fail-closed (not recommended) |
-| `api` | `boolean \| { enabled?, prefix?, version?, openapi? }` | enabled | JSON API at `/api/loom` (or `/api/loom/v1`) |
+| `api` | `boolean \| { enabled?, prefix?, version?, openapi? }` | enabled | JSON API at `/api/loom` (or `/api/loom/v1`); `openapi: true` adds `/openapi.json`, `/docs`, `/redoc` |
 | `storage` | `LoomStorageOption` | — | Local disk or custom adapter for `file` / `image` fields |
 | `audit` | `false \| true \| LoomAuditConfig` | off | Hooks on create/update/delete/restore/bulk/export |
 | `observability` | `{ onError?, slowQueryMs? }` | — | Request IDs always set; optional error / slow-query hooks |
@@ -600,7 +625,7 @@ securityHeaders: {
 },
 ```
 
-Default CSP allows same-origin assets, inline theme boot script, and Alpine from `cdn.jsdelivr.net` — matching the bundled admin UI. For stricter policies, self-host Alpine or add nonces and pass a custom `contentSecurityPolicy` string.
+Default CSP allows same-origin assets (including vendored Alpine at `{basePath}/assets/alpine.min.js`), the inline theme boot script, and `'unsafe-eval'` because Alpine evaluates `x-*` expressions via `Function`. For a stricter CSP without `unsafe-eval`, migrate templates to Alpine's CSP build (`@alpinejs/csp`) and pass a custom `contentSecurityPolicy`.
 
 Deprecated APIs log one-time `[Loom deprecation]` warnings at boot or first use. Set `LOOM_DEPRECATION_WARNINGS=0` to silence them in tests.
 
@@ -848,17 +873,42 @@ Enabled by default at **`/api/loom`**. Set **`api: { version: 'v1' }`** for a ve
 api: false                          // disable
 api: { prefix: 'internal/loom' }    // custom prefix (no leading slash)
 api: { version: 'v1' }             // → /api/loom/v1
-api: { openapi: true }             // GET {prefix}/openapi.json
+api: { openapi: true }             // GET {prefix}/openapi.json + /docs + /redoc
+api: { openapi: { docs: 'redoc' } } // Redoc only
+api: { openapi: { docs: false } }  // spec only (no UI)
 api: { enabled: false }
 ```
 
 Stability: treat **`/api/loom/v1`** as the versioned surface; unversioned routes follow the same shapes today but may gain breaking changes until 1.0.
 
+### OpenAPI docs
+
+With **`api.openapi: true`**, Loom serves FastAPI-style interactive docs (both UIs by default):
+
+| URL | Description |
+|-----|-------------|
+| `{prefix}/openapi.json` | OpenAPI 3 document (public) |
+| `{prefix}/docs` | Swagger UI (public; vendored assets, CSP-safe) |
+| `{prefix}/redoc` | Redoc (public; vendored assets, CSP-safe) |
+
+Pick a single UI (or disable docs) via config:
+
+```typescript
+api: { openapi: true }                    // Swagger /docs + Redoc /redoc
+api: { openapi: { docs: 'swagger' } }     // Swagger only
+api: { openapi: { docs: 'redoc' } }       // Redoc at /docs and /redoc
+api: { openapi: { docs: false } }         // spec only
+```
+
+Sign in via `POST {prefix}/login` (or the admin panel) so Swagger **Try it out** sends the session cookie; CSRF is attached automatically for mutating calls. Resource routes remain auth-protected.
+
 ### Routes
 
 | Method | Path | Access |
 |--------|------|--------|
-| `GET` | `/openapi.json` | Auth — OpenAPI 3 spec (when `openapi` enabled) |
+| `GET` | `/openapi.json` | Public — OpenAPI 3 spec (when `openapi` enabled) |
+| `GET` | `/docs` | Public — Swagger UI (or Redoc when `docs: 'redoc'`) |
+| `GET` | `/redoc` | Public — Redoc (when docs include redoc) |
 | `POST` | `/login` | Public — sets session cookie |
 | `POST` | `/logout` | Public |
 | `POST` | `/forgot-password` | Public — request reset email |

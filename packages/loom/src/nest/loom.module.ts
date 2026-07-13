@@ -132,23 +132,47 @@ export class LoomModule {
     ]);
   }
 
+  /**
+   * Async Loom setup. Nest registers controllers when the module is defined —
+   * before `useFactory` runs — so **`basePath` and `api` must be set here**
+   * (synchronously), not only inside the factory. Values from the factory are
+   * still used for everything else (ORM, auth, resources, …).
+   */
   static forRootAsync(asyncOptions: {
     imports?: DynamicModule['imports'];
     inject?: InjectionToken[];
+    /**
+     * Admin URL prefix for the Nest controller (default `/admin`).
+     * Required here when not using the default — factory `basePath` alone is ignored for routing.
+     */
+    basePath?: string;
+    /**
+     * JSON API enablement / prefix / version. Same sync constraint as `basePath`.
+     */
+    api?: LoomModuleOptions['api'];
     useFactory: (...args: unknown[]) => LoomModuleOptions | Promise<LoomModuleOptions>;
   }): DynamicModule {
+    const routeOptions: LoomModuleOptions = {
+      resources: [],
+      basePath: asyncOptions.basePath,
+      api: asyncOptions.api,
+    };
     return {
-      ...buildLoomModule(
-        { resources: [] },
-        [
-          {
-            provide: LOOM_OPTIONS,
-            useFactory: async (...args: unknown[]) =>
-              normalizeOptions(await asyncOptions.useFactory(...args)),
-            inject: asyncOptions.inject ?? [],
+      ...buildLoomModule(routeOptions, [
+        {
+          provide: LOOM_OPTIONS,
+          useFactory: async (...args: unknown[]) => {
+            const resolved = await asyncOptions.useFactory(...args);
+            return normalizeOptions({
+              ...resolved,
+              // Prefer sync routing options so HTML links match the registered controller.
+              basePath: asyncOptions.basePath ?? resolved.basePath,
+              api: asyncOptions.api ?? resolved.api,
+            });
           },
-        ],
-      ),
+          inject: asyncOptions.inject ?? [],
+        },
+      ]),
       imports: asyncOptions.imports ?? [],
     };
   }

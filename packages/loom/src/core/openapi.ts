@@ -40,6 +40,20 @@ export function buildLoomOpenApiSpec(options: LoomOpenApiOptions): Record<string
     [`${basePath}/openapi.json`]: {
       get: { summary: 'OpenAPI document', tags: ['Discovery'], responses: { '200': { description: 'OK' } } },
     },
+    [`${basePath}/docs`]: {
+      get: {
+        summary: 'Interactive API docs (Swagger UI)',
+        tags: ['Discovery'],
+        responses: { '200': { description: 'HTML' } },
+      },
+    },
+    [`${basePath}/redoc`]: {
+      get: {
+        summary: 'Interactive API docs (Redoc)',
+        tags: ['Discovery'],
+        responses: { '200': { description: 'HTML' } },
+      },
+    },
   };
 
   for (const meta of options.resources) {

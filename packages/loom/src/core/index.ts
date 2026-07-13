@@ -32,4 +32,5 @@ export * from './storage.js';
 export * from './audit.js';
 export * from './export.js';
 export * from './openapi.js';
+export * from './openapi-docs.js';
 export * from './list-actions.js';

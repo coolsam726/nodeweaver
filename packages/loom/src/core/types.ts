@@ -249,8 +249,19 @@ export interface LoomModuleOptions {
     prefix?: string;
     /** API version segment — when set, default prefix becomes `api/loom/{version}` */
     version?: string;
-    /** Emit OpenAPI 3 spec at `{prefix}/openapi.json` (default off) */
-    openapi?: boolean | { path?: string };
+    /**
+     * Emit OpenAPI 3 at `{prefix}/openapi.json` plus interactive docs (default off).
+     * Spec + docs UIs are public (FastAPI-style); resource routes still require auth.
+     *
+     * `docs` controls the UI:
+     * - `true` / omitted: Swagger at `{prefix}/docs` and Redoc at `{prefix}/redoc`
+     * - `'swagger'` | `'redoc'`: that UI only (at `/docs`; Redoc also at `/redoc`)
+     * - `false`: OpenAPI JSON only
+     */
+    openapi?: boolean | {
+      path?: string;
+      docs?: boolean | 'swagger' | 'redoc';
+    };
   };
   /**
    * Observability hooks for admin + JSON API.

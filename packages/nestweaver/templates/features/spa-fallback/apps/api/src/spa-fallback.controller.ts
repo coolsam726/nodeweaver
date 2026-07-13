@@ -7,6 +7,17 @@ export function setSpaIndexHtml(html: string): void {
   spaIndexHtml = html;
 }
 
+function isNestOwnedPath(path: string): boolean {
+  const normalized = (path.split('?')[0] ?? '').replace(/\/$/, '') || '/';
+  const loomBase = (process.env.LOOM_BASE_PATH || '/admin').replace(/\/$/, '') || '/admin';
+  return (
+    normalized === '/api' ||
+    normalized.startsWith('/api/') ||
+    normalized === loomBase ||
+    normalized.startsWith(`${loomBase}/`)
+  );
+}
+
 @Controller()
 export class SpaFallbackController {
   @All('*')
@@ -16,7 +27,7 @@ export class SpaFallbackController {
     @Next() next: NextFunction,
   ): void {
     const path = req.path ?? req.url ?? '';
-    if (path.startsWith('/api') || path.startsWith('/admin')) {
+    if (isNestOwnedPath(path)) {
       return next();
     }
 
