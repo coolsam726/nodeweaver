@@ -26,7 +26,7 @@ import { flashFromQuery } from '../core/flash.js';
 import { currentRequestContext } from '../core/request-context.js';
 import { LoomAuthorizationError } from '../core/abilities.js';
 import { LoginRateLimitError } from '../core/login-rate-limit.js';
-import { loomAdminCssPath, loomUiJsPath } from './paths.js';
+import { loomAdminCssPath, loomAlpineJsPath, loomUiJsPath } from './paths.js';
 import { LoomService } from './loom.service.js';
 import { LoomViewService } from './loom-view.service.js';
 import { LoomAuthService } from './loom-auth.service.js';
@@ -60,6 +60,13 @@ export function createLoomController(basePath = '/admin'): new (...args: never[]
     @Header('Cache-Control', 'no-cache')
     loomUi(): string {
       return readFileSync(loomUiJsPath(), 'utf8');
+    }
+
+    @Get('assets/alpine.min.js')
+    @Header('Content-Type', 'application/javascript; charset=utf-8')
+    @Header('Cache-Control', 'public, max-age=86400')
+    alpineJs(): string {
+      return readFileSync(loomAlpineJsPath(), 'utf8');
     }
 
     @Get('assets/admin.css')

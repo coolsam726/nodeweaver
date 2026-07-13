@@ -31,7 +31,7 @@ describe('buildLoomSecurityHeaders', () => {
     assert.equal(headers['X-Frame-Options'], 'DENY');
     assert.match(headers['Content-Security-Policy'], /unsafe-inline/);
     assert.match(headers['Content-Security-Policy'], /unsafe-eval/);
-    assert.match(headers['Content-Security-Policy'], /cdn\.jsdelivr\.net/);
+    assert.equal(headers['Content-Security-Policy'].includes('cdn.jsdelivr.net'), false);
   });
 
   it('supports report-only CSP and custom overrides', () => {

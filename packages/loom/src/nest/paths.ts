@@ -32,3 +32,7 @@ export function loomAdminCssPath(): string {
 export function loomUiJsPath(): string {
   return join(loomAssetsDir(), 'loom-ui.js');
 }
+
+export function loomAlpineJsPath(): string {
+  return join(loomAssetsDir(), 'alpine.min.js');
+}
