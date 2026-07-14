@@ -197,10 +197,12 @@ function copyDir(
   walk(sourceRoot, (sourcePath) => {
     const rel = relative(sourceRoot, sourcePath);
     const renderTemplate = isScaffoldTemplate(rel);
-    const destPath = join(
-      targetRoot,
-      renderTemplate && rel.endsWith('.hbs') ? rel.slice(0, -4) : rel,
-    );
+    let destRel = renderTemplate && rel.endsWith('.hbs') ? rel.slice(0, -4) : rel;
+    // npm never packs files named `.npmrc` — ship as `npmrc` and rename on write.
+    if (destRel === 'npmrc') {
+      destRel = '.npmrc';
+    }
+    const destPath = join(targetRoot, destRel);
 
     mkdirSync(dirname(destPath), { recursive: true });
 

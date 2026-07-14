@@ -1,6 +1,6 @@
 {
   "name": "@nodeweaver/loom",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Loom — declarative NestJS admin: resources, RBAC, tenancy, media, and JSON API (Handlebars + Tailwind + Alpine).",
   "keywords": [
     "nodeweaver",
