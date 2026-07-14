@@ -94,8 +94,10 @@ pnpm run create:weaver my-app
 
 ### Release flow
 
-1. Bump versions in `packages/loom/package.json`, `packages/nodeweaver/package.json`, and `packages/create-nodeweaver/package.json` (keep versions in sync).
-2. Commit, push to `main`, and [create a GitHub Release](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository#creating-a-release) for the tag (e.g. `v0.1.0` or `v1.0.0`).
+**Lockstep versions:** `@nodeweaver/loom`, `nodeweaver`, and `create-nodeweaver` always share the same version. Never bump one without the others. Any change destined for the next npm release must include that shared bump before publishing.
+
+1. Bump the shared version in `packages/loom/package.json`, `packages/nodeweaver/package.json`, and `packages/create-nodeweaver/package.json` (and any caret fallbacks that assume that version).
+2. Commit, push to `main`, and [create a GitHub Release](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository#creating-a-release) for the tag (e.g. `v0.1.2`).
 
 The **Publish** workflow runs on `release: published`, builds, smoke-tests the scaffolder, then publishes `@nodeweaver/loom`, `nodeweaver`, and `create-nodeweaver`.
 

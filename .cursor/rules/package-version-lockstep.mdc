@@ -1,0 +1,31 @@
+---
+description: Lockstep npm version bumps for all publishable packages
+alwaysApply: true
+---
+
+# Package version lockstep
+
+Publishable packages **always share one version**:
+
+- `packages/loom` → `@nodeweaver/loom`
+- `packages/nodeweaver` → `nodeweaver`
+- `packages/create-nodeweaver` → `create-nodeweaver`
+
+## Rules
+
+1. **Never bump one alone.** If any of the three changes version, update all three to the same number in the same commit (or same PR).
+2. **Ship-ready bumps.** Any meaningful change that will go out in the next npm release must include a version bump before that release (patch for fixes/docs/CI publish plumbing; minor/major for features/breaks as usual).
+3. **Keep helpers aligned.** Update version fallbacks that assume the shared version (e.g. `publishedLoomSpecifier` in `packages/nodeweaver/src/generators/loom-dependency.ts`).
+4. **Do not bump** `@repo/shared` or other private workspace packages under this policy.
+
+## Example
+
+```text
+# ❌ BAD — only scaffolder bumped
+packages/nodeweaver/package.json → 0.1.3
+
+# ✅ GOOD — lockstep
+packages/loom/package.json              → 0.1.3
+packages/nodeweaver/package.json        → 0.1.3
+packages/create-nodeweaver/package.json → 0.1.3
+```
