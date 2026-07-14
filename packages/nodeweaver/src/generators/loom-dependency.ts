@@ -38,9 +38,9 @@ function publishedLoomSpecifier(): string {
     const pkg = JSON.parse(
       readFileSync(join(NODEWEAVER_PACKAGE_DIR, 'package.json'), 'utf8'),
     ) as { version?: string };
-    return `^${pkg.version ?? '0.1.2'}`;
+    return `^${pkg.version ?? '0.1.3'}`;
   } catch {
-    return '^0.1.2';
+    return '^0.1.3';
   }
 }
 
