@@ -110,8 +110,7 @@ export function createLoomAuthController(
     }
 
     @Get('logout')
-    @Post('logout')
-    async logout(
+    async logoutGet(
       @Res() res: {
         setHeader?: (name: string, value: string) => void;
         appendHeader?: (name: string, value: string) => void;
@@ -122,12 +121,150 @@ export function createLoomAuthController(
         statusCode?: number;
       },
     ): Promise<void> {
-      const user = currentLoomUser();
-      if (user) {
-        await this.auth.bumpSessionVersion(user.id);
+      await this.performLogout(res);
+    }
+
+    /**
+     * Must be a separate handler from GET — Nest `@Get`/`@Post` on the same
+     * method overwrite each other (only the last HTTP method is registered).
+     */
+    @Post('logout')
+    async logoutPost(
+      @Res() res: {
+        setHeader?: (name: string, value: string) => void;
+        appendHeader?: (name: string, value: string) => void;
+        header?: (name: string, value: string) => unknown;
+        redirect?: ((status: number, url: string) => unknown) | ((url: string, status?: number) => unknown);
+        status?: (code: number) => { send?: (body?: unknown) => unknown };
+        send?: (body?: unknown) => unknown;
+        statusCode?: number;
+      },
+    ): Promise<void> {
+      await this.performLogout(res);
+    }
+
+    @Get('account')
+    @Header('Content-Type', 'text/html; charset=utf-8')
+    accountForm(
+      @Query('error') error?: string,
+      @Query('success') success?: string,
+    ): string {
+      if (!this.auth.enabled) {
+        throw new HttpException('Authentication is not configured', HttpStatus.NOT_FOUND);
       }
+      const user = currentLoomUser();
+      if (!user) {
+        throw new HttpException('Authentication required', HttpStatus.UNAUTHORIZED);
+      }
+      return this.views.render(
+        'account',
+        this.authPageContext({
+          pageTitle: 'Edit profile',
+          user,
+          flash: flashFromQuery(success, error),
+          accountPath: this.auth.accountPath,
+          changePasswordPath: this.auth.changePasswordPath,
+        }),
+        { layout: 'bare' },
+      );
+    }
+
+    @Post('account')
+    async accountUpdate(
+      @Body() body: { name?: string; email?: string },
+      @Res() res: Parameters<typeof sendRedirect>[0],
+    ): Promise<void> {
+      if (!this.auth.enabled) {
+        throw new HttpException('Authentication is not configured', HttpStatus.NOT_FOUND);
+      }
+      const user = currentLoomUser();
+      if (!user) {
+        sendRedirect(res, this.auth.loginPath);
+        return;
+      }
+      const result = await this.auth.updateProfile(user.id, {
+        name: body.name,
+        email: body.email,
+      });
+      if (!result.ok) {
+        sendRedirect(
+          res,
+          `${this.auth.accountPath}?error=${encodeURIComponent(result.message)}`,
+        );
+        return;
+      }
+      sendRedirect(
+        res,
+        `${this.auth.accountPath}?success=${encodeURIComponent('Profile updated')}`,
+      );
+    }
+
+    @Get('account/password')
+    @Header('Content-Type', 'text/html; charset=utf-8')
+    changePasswordForm(
+      @Query('error') error?: string,
+      @Query('success') success?: string,
+    ): string {
+      if (!this.auth.enabled) {
+        throw new HttpException('Authentication is not configured', HttpStatus.NOT_FOUND);
+      }
+      const user = currentLoomUser();
+      if (!user) {
+        throw new HttpException('Authentication required', HttpStatus.UNAUTHORIZED);
+      }
+      return this.views.render(
+        'change-password',
+        this.authPageContext({
+          pageTitle: 'Change password',
+          user,
+          flash: flashFromQuery(success, error),
+          accountPath: this.auth.accountPath,
+          changePasswordPath: this.auth.changePasswordPath,
+        }),
+        { layout: 'bare' },
+      );
+    }
+
+    @Post('account/password')
+    async changePassword(
+      @Body() body: { currentPassword?: string; password?: string; passwordConfirm?: string },
+      @Res() res: Parameters<typeof sendRedirect>[0],
+    ): Promise<void> {
+      if (!this.auth.enabled) {
+        throw new HttpException('Authentication is not configured', HttpStatus.NOT_FOUND);
+      }
+      const user = currentLoomUser();
+      if (!user) {
+        sendRedirect(res, this.auth.loginPath);
+        return;
+      }
+      const password = String(body.password ?? '');
+      const confirm = String(body.passwordConfirm ?? '');
+      if (password !== confirm) {
+        sendRedirect(
+          res,
+          `${this.auth.changePasswordPath}?error=${encodeURIComponent('Passwords do not match')}`,
+        );
+        return;
+      }
+      const result = await this.auth.changePassword(
+        user.id,
+        String(body.currentPassword ?? ''),
+        password,
+      );
+      if (!result.ok) {
+        sendRedirect(
+          res,
+          `${this.auth.changePasswordPath}?error=${encodeURIComponent(result.message)}`,
+        );
+        return;
+      }
+      // Session version bumped — force re-login
       setResponseCookies(res, this.auth.clearSessionCookies());
-      sendRedirect(res, this.auth.loginPath);
+      sendRedirect(
+        res,
+        `${this.auth.loginPath}?success=${encodeURIComponent('Password updated. Sign in again.')}`,
+      );
     }
 
     @Get('forgot-password')
@@ -260,6 +397,25 @@ export function createLoomAuthController(
       );
     }
 
+    private async performLogout(
+      res: {
+        setHeader?: (name: string, value: string) => void;
+        appendHeader?: (name: string, value: string) => void;
+        header?: (name: string, value: string) => unknown;
+        redirect?: ((status: number, url: string) => unknown) | ((url: string, status?: number) => unknown);
+        status?: (code: number) => { send?: (body?: unknown) => unknown };
+        send?: (body?: unknown) => unknown;
+        statusCode?: number;
+      },
+    ): Promise<void> {
+      const user = currentLoomUser();
+      if (user) {
+        await this.auth.bumpSessionVersion(user.id);
+      }
+      setResponseCookies(res, this.auth.clearSessionCookies());
+      sendRedirect(res, this.auth.loginPath);
+    }
+
     private authPageContext(extra: Record<string, unknown>): Record<string, unknown> {
       return {
         panelTitle: this.loom.panelTitle,
@@ -268,6 +424,8 @@ export function createLoomAuthController(
         csrfToken: currentCsrfToken(),
         loginPath: this.auth.loginPath,
         logoutPath: this.auth.logoutPath,
+        accountPath: this.auth.accountPath,
+        changePasswordPath: this.auth.changePasswordPath,
         forgotPasswordPath: this.auth.forgotPasswordPath,
         resetPasswordPath: this.auth.resetPasswordPath,
         ...extra,
@@ -294,7 +452,12 @@ export function createLoomAuthLegacyRedirectController(
     }
 
     @Get('logout')
-    logout(@Res() res: Parameters<typeof sendRedirect>[0]): void {
+    logoutGet(@Res() res: Parameters<typeof sendRedirect>[0]): void {
+      sendRedirect(res, this.auth.logoutPath);
+    }
+
+    @Post('logout')
+    logoutPost(@Res() res: Parameters<typeof sendRedirect>[0]): void {
       sendRedirect(res, this.auth.logoutPath);
     }
 

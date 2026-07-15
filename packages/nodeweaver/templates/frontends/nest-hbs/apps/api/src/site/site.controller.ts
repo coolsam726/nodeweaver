@@ -165,6 +165,8 @@ export class SiteController {
       adminPath: this.loom.basePath,
       loginPath: this.auth.loginPath,
       logoutPath: this.auth.logoutPath,
+      accountPath: this.auth.accountPath,
+      changePasswordPath: this.auth.changePasswordPath,
       authEnabled: this.auth.enabled,
     };
   }

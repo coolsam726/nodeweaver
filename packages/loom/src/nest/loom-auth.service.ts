@@ -124,6 +124,14 @@ export class LoomAuthService implements OnModuleInit {
     return joinAppPath(this.appBasePath, 'logout');
   }
 
+  get accountPath(): string {
+    return joinAppPath(this.appBasePath, 'account');
+  }
+
+  get changePasswordPath(): string {
+    return joinAppPath(this.appBasePath, 'account/password');
+  }
+
   get forgotPasswordPath(): string {
     return joinAppPath(this.appBasePath, 'forgot-password');
   }
@@ -267,6 +275,93 @@ export class LoomAuthService implements OnModuleInit {
     }
   }
 
+  /**
+   * Update the signed-in user's name/email on the users resource.
+   */
+  async updateProfile(
+    userId: string,
+    input: { name?: string; email?: string },
+  ): Promise<{ ok: true; user: LoomAuthUser } | { ok: false; message: string }> {
+    if (!this.options.auth) {
+      return { ok: false, message: 'Authentication is not configured' };
+    }
+    const nameField = this.options.auth.nameField ?? 'name';
+    const emailField = this.options.auth.emailField ?? 'email';
+    const name = String(input.name ?? '').trim();
+    const email = String(input.email ?? '').trim().toLowerCase();
+    if (!name) {
+      return { ok: false, message: 'Name is required' };
+    }
+    if (!email || !email.includes('@')) {
+      return { ok: false, message: 'A valid email is required' };
+    }
+
+    const meta = this.userMeta();
+    try {
+      const existing = await this.adapter.findFirst(meta, { [emailField]: email });
+      if (existing && recordIdFrom(existing) !== userId) {
+        return { ok: false, message: 'That email is already in use' };
+      }
+      const updated = await this.adapter.update(meta, userId, {
+        [nameField]: name,
+        [emailField]: email,
+      });
+      const user = await this.hydrateAuthUser(updated);
+      if (!user) {
+        return { ok: false, message: 'Could not update profile' };
+      }
+      return { ok: true, user };
+    } catch (error) {
+      this.logger.warn(
+        `Profile update failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return { ok: false, message: 'Could not update profile' };
+    }
+  }
+
+  /**
+   * Change password for the signed-in user (requires current password).
+   */
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<{ ok: true } | { ok: false; message: string }> {
+    if (!this.options.auth) {
+      return { ok: false, message: 'Authentication is not configured' };
+    }
+    const password = String(newPassword ?? '');
+    if (password.length < 8) {
+      return { ok: false, message: 'Password must be at least 8 characters' };
+    }
+    const record = await this.findUserRecordById(userId);
+    if (!record) {
+      return { ok: false, message: 'User not found' };
+    }
+    const passwordField = this.options.auth.passwordField ?? 'password';
+    const stored = String(record[passwordField] ?? '');
+    const allowPlaintext =
+      this.options.auth.allowPlaintextPasswords ?? process.env.NODE_ENV !== 'production';
+    const ok = await verifyPassword(String(currentPassword ?? ''), stored, {
+      allowPlaintext,
+    });
+    if (!ok) {
+      return { ok: false, message: 'Current password is incorrect' };
+    }
+    try {
+      await this.adapter.update(this.userMeta(), userId, {
+        [passwordField]: await hashPassword(password),
+      });
+      await this.bumpSessionVersion(userId);
+      return { ok: true };
+    } catch (error) {
+      this.logger.warn(
+        `Password change failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return { ok: false, message: 'Could not update password' };
+    }
+  }
+
   async resolveUserFromRequest(req: {
     headers?: Record<string, unknown>;
     cookies?: Record<string, string>;
@@ -374,7 +469,7 @@ export class LoomAuthService implements OnModuleInit {
 
     if (normalized === LOOM_ALL_COMPANIES) {
       if (!isAdmin(user)) {
-        throw new LoomAuthorizationError('Only admins can view all companies');
+        throw new LoomAuthorizationError('Only super admins can view all companies');
       }
     } else if (isAdmin(user)) {
       try {
@@ -473,12 +568,12 @@ export class LoomAuthService implements OnModuleInit {
 
     const maxAgeMs = auth.maxAgeMs ?? 7 * 24 * 60 * 60 * 1000;
     const sv = this.readSessionVersion(record, user.id);
-    // Non-admins always get their default membership company; admins may
-    // start on default company or "all companies" when none is set.
+    // Super admins may start unscoped ("all companies"). Non-admins always
+    // get a concrete membership company when one exists — never "all".
     const sessionCompanyId = this.tenancy
       ? isAdmin(user)
         ? (user.companyId ?? LOOM_ALL_COMPANIES)
-        : (user.companyId ?? LOOM_ALL_COMPANIES)
+        : user.companyId
       : undefined;
     const token = signSession(
       {

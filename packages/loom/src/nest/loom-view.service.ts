@@ -263,7 +263,21 @@ export class LoomViewService {
           const date = new Date(String(value));
           return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString();
         }
+        if (entry.type === 'image' && typeof value === 'string') return value;
         return String(value);
+      },
+    );
+    Handlebars.registerHelper(
+      'fieldType',
+      function (
+        fieldName: string,
+        options: { data?: { root?: { resource?: ResourceMeta } } },
+      ) {
+        const resource = options?.data?.root?.resource;
+        const field = resource?.fields.find((item) => item.name === fieldName);
+        if (field?.type) return field.type;
+        const column = resource?.columns.find((item) => item.name === fieldName);
+        return column?.type ?? '';
       },
     );
     Handlebars.registerHelper(
@@ -278,6 +292,10 @@ export class LoomViewService {
         const root = options?.data?.root;
         const field = root?.resource?.fields.find((item) => item.name === fieldName);
         const column = root?.resource?.columns.find((item) => item.name === fieldName);
+        if (field?.type === 'image' || column?.type === 'image') {
+          const value = record[fieldName];
+          return typeof value === 'string' ? value : '';
+        }
         const relation = column?.relation ?? field?.relation;
         const label = relationLabel(fieldName, record, root?.relationLabels, relation);
         if (label) return label;

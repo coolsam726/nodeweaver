@@ -44,11 +44,11 @@ export abstract class UserResourceBase extends Resource {
         PasswordField.make('password').required().label('Password'),
         RelationField.make('roleIds').manyToMany('roles').widget('combobox').label('Roles').columnSpanFull(),
         RelationField.make('companyIds')
-          .manyToMany('companies')
+          .manyToMany('companies', 'name')
           .widget('combobox')
           .label('Companies')
           .columnSpanFull(),
-        RelationField.make('companyId').manyToOne('companies').label('Default company'),
+        RelationField.make('companyId').manyToOne('companies', 'name').label('Default company'),
         BooleanField.make('active').label('Active'),
       );
     return schema.build();
@@ -61,8 +61,8 @@ export abstract class UserResourceBase extends Resource {
         TextColumn.make('name').searchable().sortable(),
         TextColumn.make('email').searchable().sortable(),
         RelationColumn.make('roleIds').manyToMany('roles').label('Roles'),
-        RelationColumn.make('companyIds').manyToMany('companies').label('Companies'),
-        RelationColumn.make('company.displayName').manyToOne('companies').label('Default company'),
+        RelationColumn.make('companyIds').manyToMany('companies', 'name').label('Companies'),
+        RelationColumn.make('company.name').manyToOne('companies').label('Default company'),
         BooleanColumn.make('active').sortable(),
         DateTimeColumn.make('createdAt').sortable(),
       )
@@ -77,8 +77,8 @@ export abstract class UserResourceBase extends Resource {
         TextColumn.make('name'),
         TextColumn.make('email'),
         RelationColumn.make('roleIds').manyToMany('roles').label('Roles'),
-        RelationColumn.make('companyIds').manyToMany('companies').label('Companies'),
-        RelationColumn.make('company.displayName').manyToOne('companies').label('Default company'),
+        RelationColumn.make('companyIds').manyToMany('companies', 'name').label('Companies'),
+        RelationColumn.make('company.name').manyToOne('companies').label('Default company'),
         BooleanColumn.make('active'),
         DateTimeColumn.make('createdAt'),
       )

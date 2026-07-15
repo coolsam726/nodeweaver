@@ -547,6 +547,16 @@ export class BooleanColumn extends ColumnBase<ColumnConfig> {
   }
 }
 
+export class ImageColumn extends ColumnBase<ColumnConfig> {
+  private constructor(config: ColumnConfig) {
+    super(config);
+  }
+
+  static make(name: string): ImageColumn {
+    return new ImageColumn(baseColumn(name, 'image'));
+  }
+}
+
 export class DateColumn extends ColumnBase<ColumnConfig> {
   private constructor(config: ColumnConfig) {
     super(config);
@@ -666,6 +676,7 @@ export type Column =
   | IdColumn
   | TextColumn
   | BooleanColumn
+  | ImageColumn
   | DateColumn
   | DateTimeColumn
   | RelationColumn;

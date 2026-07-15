@@ -10,7 +10,17 @@
           <div class="loom-detail-cell" style="{{gridItemStyle this (or ../columns 2)}}">
             <dt class="loom-field__label">{{label}}</dt>
             <dd class="loom-field__value mt-1">
-              {{#if (eq format 'boolean')}}
+              {{#if (eq type 'image')}}
+                {{#if (lookup ../../record name)}}
+                  <img
+                    src="{{lookup ../../record name}}"
+                    alt="{{label}}"
+                    class="max-h-32 rounded-md border border-default object-contain"
+                  />
+                {{else}}
+                  —
+                {{/if}}
+              {{else if (eq format 'boolean')}}
                 <span class="loom-boolean-badge {{#if (lookup ../../record name)}}is-true{{else}}is-false{{/if}}">
                   {{entryValue ../../record this}}
                 </span>
@@ -50,7 +60,17 @@
           <div class="loom-detail-cell px-6 py-4 border-t border-card-border sm:border-t-0 sm:border-r sm:border-card-border last:border-r-0" style="{{gridItemStyle this (or ../columns 2)}}">
             <dt class="loom-field__label">{{label}}</dt>
             <dd class="loom-field__value mt-1">
-              {{#if (eq format 'boolean')}}
+              {{#if (eq type 'image')}}
+                {{#if (lookup ../../record name)}}
+                  <img
+                    src="{{lookup ../../record name}}"
+                    alt="{{label}}"
+                    class="max-h-32 rounded-md border border-default object-contain"
+                  />
+                {{else}}
+                  —
+                {{/if}}
+              {{else if (eq format 'boolean')}}
                 <span class="loom-boolean-badge {{#if (lookup ../../record name)}}is-true{{else}}is-false{{/if}}">
                   {{entryValue ../../record this}}
                 </span>

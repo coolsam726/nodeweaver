@@ -1,6 +1,6 @@
 {
   "name": "create-nodeweaver",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Create a NestJS fullstack monorepo with Loom admin via nodeweaver",
   "type": "module",
   "bin": {

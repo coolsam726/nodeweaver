@@ -16,7 +16,15 @@
   {{/if}}
   {{#each @root.resource.columns}}
     <td class="px-4 py-3 text-body">
-      {{#if (eq type 'boolean')}}
+      {{#if (eq type 'image')}}
+        {{#if (lookup ../this name)}}
+          <img
+            src="{{lookup ../this name}}"
+            alt="{{label}}"
+            class="h-8 w-8 rounded object-cover border border-default"
+          />
+        {{/if}}
+      {{else if (eq type 'boolean')}}
         <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium {{#if (lookup ../this name)}}bg-success-soft text-success-strong{{else}}bg-badge-neutral text-body-subtle{{/if}}">
           {{cellValue .. this}}
         </span>

@@ -11,10 +11,22 @@
     {{#if kanban.card.fields}}
       <dl class="mt-3 space-y-1">
         {{#each kanban.card.fields}}
-          <div class="flex justify-between gap-2 text-xs">
-            <dt class="text-body-subtle capitalize">{{this}}</dt>
-            <dd class="font-medium text-body">{{kanbanFieldValue .. this}}</dd>
-          </div>
+          {{#if (eq (fieldType this) 'image')}}
+            {{#if (lookup .. this)}}
+              <div class="pt-1">
+                <img
+                  src="{{lookup .. this}}"
+                  alt="{{this}}"
+                  class="h-10 w-10 rounded object-cover border border-default"
+                />
+              </div>
+            {{/if}}
+          {{else}}
+            <div class="flex justify-between gap-2 text-xs">
+              <dt class="text-body-subtle capitalize">{{this}}</dt>
+              <dd class="font-medium text-body">{{kanbanFieldValue .. this}}</dd>
+            </div>
+          {{/if}}
         {{/each}}
       </dl>
     {{/if}}
@@ -31,10 +43,22 @@
     {{#if kanban.card.fields}}
       <dl class="mt-3 space-y-1">
         {{#each kanban.card.fields}}
-          <div class="flex justify-between gap-2 text-xs">
-            <dt class="text-body-subtle capitalize">{{this}}</dt>
-            <dd class="font-medium text-body">{{kanbanFieldValue .. this}}</dd>
-          </div>
+          {{#if (eq (fieldType this) 'image')}}
+            {{#if (lookup .. this)}}
+              <div class="pt-1">
+                <img
+                  src="{{lookup .. this}}"
+                  alt="{{this}}"
+                  class="h-10 w-10 rounded object-cover border border-default"
+                />
+              </div>
+            {{/if}}
+          {{else}}
+            <div class="flex justify-between gap-2 text-xs">
+              <dt class="text-body-subtle capitalize">{{this}}</dt>
+              <dd class="font-medium text-body">{{kanbanFieldValue .. this}}</dd>
+            </div>
+          {{/if}}
         {{/each}}
       </dl>
     {{/if}}

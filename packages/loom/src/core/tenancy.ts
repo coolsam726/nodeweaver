@@ -104,23 +104,23 @@ export const LOOM_ALL_COMPANIES = '';
 
 /**
  * Companies the user may activate in the switcher.
- * When `membershipField` has values, those ids are the only allowed set.
- * When the list is empty/missing, falls back to home `companyId` only.
+ * Always unions home `companyId` into the membership list when present.
  */
 export function membershipCompanyIds(
   record: Record<string, unknown>,
   homeCompanyId: string | undefined,
   membershipField?: string,
 ): string[] {
+  const ids: string[] = [];
   if (membershipField) {
-    const fromList = [
-      ...new Set(
-        relationIdsFromValue(record[membershipField]).map((id) => String(id)),
-      ),
-    ];
-    if (fromList.length > 0) return fromList;
+    ids.push(
+      ...relationIdsFromValue(record[membershipField]).map((id) => String(id)),
+    );
   }
-  return homeCompanyId ? [String(homeCompanyId)] : [];
+  if (homeCompanyId) {
+    ids.push(String(homeCompanyId));
+  }
+  return [...new Set(ids)];
 }
 
 /**

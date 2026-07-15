@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
     rel="stylesheet"
-    href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&family=Poppins:wght@600;700;800&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&family=Poppins:wght@500;600;700;800&display=swap"
   />
   {{#if branding.fontUrl}}
     <link rel="stylesheet" href="{{branding.fontUrl}}" />
@@ -44,6 +44,8 @@
     <div class="site-nav__links">
       {{#if user}}
         <span class="site-nav__link" style="pointer-events:none;opacity:0.85">{{user.email}}</span>
+        <a href="{{accountPath}}" class="site-nav__link">Profile</a>
+        <a href="{{changePasswordPath}}" class="site-nav__link">Password</a>
       {{/if}}
       <button
         type="button"

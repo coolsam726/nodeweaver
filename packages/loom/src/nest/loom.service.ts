@@ -8,6 +8,7 @@ import {
   buildRelationFieldContexts,
   buildRelationLabelMap,
   buildRelationOptionsForForm,
+  relationIdsFromValue,
   relationQuickCreate,
   searchRelationOptions,
   shouldPreloadRelation,
@@ -71,7 +72,9 @@ import {
   mergeQueryScopes,
   recordMatchesCompany,
   resourceCompanyField,
+  tenancyCompanyField,
   tenancyEnabled,
+  tenancyMembershipField,
 } from '../core/tenancy.js';
 import { currentRequestContext, setRequestContextField } from '../core/request-context.js';
 
@@ -148,6 +151,14 @@ export class LoomService {
     return this.authService.logoutPath;
   }
 
+  get accountPath(): string {
+    return this.authService.accountPath;
+  }
+
+  get changePasswordPath(): string {
+    return this.authService.changePasswordPath;
+  }
+
   get forgotPasswordPath(): string {
     return this.authService.forgotPasswordPath;
   }
@@ -219,6 +230,18 @@ export class LoomService {
   get openapiRedocEnabled(): boolean {
     const mode = this.openapiDocsMode;
     return mode === 'redoc' || mode === 'both';
+  }
+
+  /**
+   * Absolute path to interactive API docs when OpenAPI docs are enabled.
+   * Prefers Swagger (`/docs`); falls back to Redoc (`/redoc`).
+   */
+  get apiDocsPath(): string | undefined {
+    if (!this.openapiDocsEnabled) return undefined;
+    const prefix = `/${this.apiPrefix.replace(/^\//, '')}`;
+    if (this.openapiSwaggerEnabled) return `${prefix}/docs`;
+    if (this.openapiRedocEnabled) return `${prefix}/redoc`;
+    return undefined;
   }
 
   get storageEnabled(): boolean {
@@ -339,6 +362,7 @@ export class LoomService {
     const existing = await this.adapter.findOne(this.meta(slug), id);
     this.authorizeRecord(slug, 'edit', existing);
     const writable = await this.pickWritable(slug, data, 'edit');
+    this.syncUserCompanyConsistency(slug, writable, existing);
     const updated = await this.adapter.update(this.meta(slug), id, writable);
     const userSlug = this.options.auth?.userResource ?? 'users';
     const passwordField = this.options.auth?.passwordField ?? 'password';
@@ -804,6 +828,7 @@ export class LoomService {
   async createRecord(slug: string, data: Record<string, unknown>) {
     this.authorize(slug, 'create');
     const writable = await this.pickWritable(slug, data, 'create');
+    this.syncUserCompanyConsistency(slug, writable);
     const policy = this.policyFor(slug);
     const ownerField = policy?.ownerField;
     const user = this.authUser();
@@ -951,7 +976,9 @@ export class LoomService {
       const field = meta.fields.find((item) => item.name === key);
       if (!field) continue;
       if ((value === '' || value === undefined) && field.type === 'relation' && !field.required) {
-        out[key] = null;
+        const isMulti =
+          field.relation?.kind === 'many2many' || field.relation?.kind === 'one2many';
+        out[key] = isMulti ? [] : null;
         continue;
       }
       if (value === '' || value === undefined) continue;
@@ -983,6 +1010,61 @@ export class LoomService {
       }
     }
     return out;
+  }
+
+  /**
+   * Keep user default company (`companyId`) and memberships (`companyIds`) in sync:
+   * - empty M2M stays `[]`
+   * - default company is always included in memberships
+   * - first membership is promoted when default is empty
+   */
+  private syncUserCompanyConsistency(
+    slug: string,
+    writable: Record<string, unknown>,
+    existing?: Record<string, unknown>,
+  ): void {
+    const userSlug = this.options.auth?.userResource ?? 'users';
+    if (slug !== userSlug) return;
+    if (!tenancyEnabled(this.options.auth?.tenancy)) return;
+
+    const tenancy = this.options.auth!.tenancy!;
+    const homeField = tenancyCompanyField(tenancy);
+    const membershipField = tenancyMembershipField(tenancy);
+    if (!membershipField) return;
+    if (!(homeField in writable) && !(membershipField in writable)) return;
+
+    const homeRaw =
+      homeField in writable ? writable[homeField] : existing?.[homeField];
+    let home =
+      homeRaw != null && homeRaw !== '' ? String(homeRaw) : undefined;
+
+    let memberships: string[];
+    if (membershipField in writable) {
+      memberships = [
+        ...new Set(relationIdsFromValue(writable[membershipField]).map(String)),
+      ];
+    } else {
+      memberships = [
+        ...new Set(relationIdsFromValue(existing?.[membershipField]).map(String)),
+      ];
+    }
+
+    if (home && !memberships.includes(home)) {
+      memberships = [...memberships, home];
+    }
+    if (!home && memberships.length > 0) {
+      home = memberships[0];
+    }
+    if (home && memberships.length === 0) {
+      memberships = [home];
+    }
+
+    writable[membershipField] = memberships;
+    if (home) {
+      writable[homeField] = home;
+    } else if (homeField in writable) {
+      writable[homeField] = null;
+    }
   }
 
   private async auditMutation(

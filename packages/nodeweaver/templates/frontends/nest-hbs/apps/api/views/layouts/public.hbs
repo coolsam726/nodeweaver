@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
     rel="stylesheet"
-    href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&family=Poppins:wght@600;700;800&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&family=Poppins:wght@500;600;700;800&display=swap"
   />
   {{#if branding.fontUrl}}
     <link rel="stylesheet" href="{{branding.fontUrl}}" />
@@ -40,6 +40,8 @@
       {{#if user}}
         <a href="{{appPath}}" class="site-nav__link">Portal</a>
         <a href="{{adminPath}}" class="site-nav__link">Admin</a>
+        <a href="{{accountPath}}" class="site-nav__link">Profile</a>
+        <a href="{{changePasswordPath}}" class="site-nav__link">Password</a>
         <form method="post" action="{{logoutPath}}" class="inline">
           {{> csrf}}
           <button type="submit" class="site-btn site-btn--quiet">Sign out</button>

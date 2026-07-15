@@ -154,10 +154,10 @@ describe('tenancyMembershipField', () => {
 });
 
 describe('membershipCompanyIds', () => {
-  it('uses membership list as the only allowed set when present', () => {
+  it('unions home company into the membership list', () => {
     assert.deepEqual(
       membershipCompanyIds({ companyIds: ['b', 'c'] }, 'a', 'companyIds').sort(),
-      ['b', 'c'],
+      ['a', 'b', 'c'],
     );
   });
 
@@ -168,10 +168,10 @@ describe('membershipCompanyIds', () => {
     );
   });
 
-  it('parses comma strings', () => {
+  it('parses comma strings and unions home', () => {
     assert.deepEqual(
       membershipCompanyIds({ companyIds: 'b, c' }, 'home', 'companyIds').sort(),
-      ['b', 'c'],
+      ['b', 'c', 'home'],
     );
   });
 });
@@ -184,11 +184,14 @@ describe('resolveDefaultCompanyId', () => {
     );
   });
 
-  it('falls back to first membership when home is missing or outside list', () => {
+  it('prefers home even when it was missing from the stored membership list', () => {
     assert.equal(
       resolveDefaultCompanyId({ companyIds: ['b', 'c'] }, 'a', 'companyIds'),
-      'b',
+      'a',
     );
+  });
+
+  it('falls back to first membership when home is unset', () => {
     assert.equal(
       resolveDefaultCompanyId({ companyIds: ['b', 'c'] }, undefined, 'companyIds'),
       'b',

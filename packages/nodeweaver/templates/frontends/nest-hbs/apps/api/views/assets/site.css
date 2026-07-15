@@ -6,8 +6,8 @@
   --site-mist: #e8eef2;
   --site-fog: #f4f7f9;
   --site-line: color-mix(in srgb, var(--color-fg-brand) 18%, #c5d0d8);
-  --site-display: "Poppins", var(--loom-font-family, ui-sans-serif, system-ui, sans-serif);
-  --site-body: "Manrope", var(--loom-font-family, ui-sans-serif, system-ui, sans-serif);
+  --site-display: "Poppins", ui-sans-serif, system-ui, sans-serif;
+  --site-body: "Manrope", ui-sans-serif, system-ui, sans-serif;
   --site-ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -30,6 +30,14 @@
   color: var(--site-ink);
   letter-spacing: -0.03em;
   line-height: 0.95;
+}
+
+.site-body h1,
+.site-body h2,
+.site-body h3,
+.site-body h4 {
+  font-family: var(--site-display);
+  color: var(--site-ink);
 }
 
 /* —— Motion —— */
@@ -263,7 +271,7 @@
   max-width: 18ch;
   font-family: var(--site-display);
   font-size: clamp(1.65rem, 3.5vw, 2.35rem);
-  font-weight: 650;
+  font-weight: 700;
   letter-spacing: -0.035em;
   line-height: 1.15;
   color: var(--site-ink);

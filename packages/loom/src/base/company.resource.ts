@@ -4,6 +4,7 @@ import {
   DateTimeColumn,
   EmailField,
   IdColumn,
+  ImageColumn,
   ImageField,
   Resource,
   KanbanBuilder,
@@ -50,6 +51,7 @@ export abstract class CompanyResourceBase extends Resource {
     return table
       .columns(
         IdColumn.make(),
+        ImageColumn.make('logo').label('Logo'),
         TextColumn.make('name').searchable().sortable(),
         TextColumn.make('code').searchable().sortable(),
         BooleanColumn.make('active').sortable(),
@@ -63,11 +65,11 @@ export abstract class CompanyResourceBase extends Resource {
     return infolist
       .section('identity', 'Identity')
       .entries(
+        ImageColumn.make('logo').label('Logo'),
         TextColumn.make('name'),
         TextColumn.make('code'),
         TextColumn.make('email'),
         TextColumn.make('phone'),
-        TextColumn.make('logo'),
         BooleanColumn.make('active'),
         DateTimeColumn.make('createdAt'),
       )
@@ -79,7 +81,7 @@ export abstract class CompanyResourceBase extends Resource {
       .title('Companies')
       .gridColumns(4)
       .card('name', 'email')
-      .fields('code', 'phone')
+      .fields('logo', 'code', 'phone')
       .build();
   }
 }

@@ -65,6 +65,8 @@ export function isNestOwnedPath(
     rest.startsWith(`${adminRel}/`) ||
     rest === '/login' ||
     rest === '/logout' ||
+    rest === '/account' ||
+    rest.startsWith('/account/') ||
     rest === '/forgot-password' ||
     rest === '/reset-password';
 
